@@ -1,0 +1,562 @@
+import { useState, useEffect } from "react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { 
+  Bell, 
+  User, 
+  Menu, 
+  Home, 
+  Gamepad2, 
+  Coins,
+  CreditCard,
+  ArrowUpDown,
+  MessageSquare,
+  Settings,
+  LogOut,
+  Crown,
+  Wallet,
+  History
+} from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
+import { supabase } from "../../lib/supabase";
+import { useWebSocket } from "../../hooks/useWebSocket";
+import { toast } from "sonner@2.0.3";
+
+interface UserHeaderProps {
+  user: any;
+  currentRoute: string;
+  onRouteChange: (route: string) => void;
+  onLogout: () => void;
+}
+
+interface UserBalance {
+  balance: number;
+  points: number;
+}
+
+const menuItems = [
+  { path: '/user/home', label: '홈', icon: Home },
+  { path: '/user/casino', label: '카지노', icon: Gamepad2 },
+  { path: '/user/slot', label: '슬롯', icon: Coins },
+  { path: '/user/betting-history', label: '베팅내역', icon: History },
+  { path: '/user/deposit', label: '입금신청', icon: CreditCard },
+  { path: '/user/withdraw', label: '출금신청', icon: ArrowUpDown },
+  { path: '/user/notice', label: '공지사항', icon: MessageSquare },
+  { path: '/user/support', label: '고객센터', icon: MessageSquare },
+  { path: '/user/profile', label: '내정보', icon: Settings }
+];
+
+export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: UserHeaderProps) {
+  const [balance, setBalance] = useState<UserBalance>({ balance: 0, points: 0 });
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showPointsDialog, setShowPointsDialog] = useState(false);
+  const { connected } = useWebSocket();
+
+  // 잔고 정보 조회
+  const fetchBalance = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('balance, points')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        setBalance({
+          balance: parseFloat(data.balance) || 0,
+          points: parseFloat(data.points) || 0
+        });
+      }
+    } catch (error) {
+      console.error('잔고 조회 오류:', error);
+    }
+  };
+
+  // 실시간 잔고 업데이트 구독 (이벤트 발생 업데이트)
+  useEffect(() => {
+    // 초기 잔고 로드
+    fetchBalance();
+
+    console.log('🔔 보유금 실시간 구독 시작:', user.id);
+
+    // 1. users 테이블 변경 감지 (보유금 직접 업데이트)
+    const usersChannel = supabase
+      .channel(`user_balance_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('💰 [users 테이블] 보유금 변경 감지:', payload);
+          const newData = payload.new as any;
+          
+          setBalance({
+            balance: parseFloat(newData.balance) || 0,
+            points: parseFloat(newData.points) || 0
+          });
+
+          // 잔고 변경 알림
+          toast.success(`보유금이 업데이트되었습니다: ₩${parseFloat(newData.balance).toLocaleString()}`, {
+            duration: 3000,
+            icon: '💰'
+          });
+        }
+      )
+      .subscribe();
+
+    // 2. transactions 테이블 변경 감지 (입출금 이벤트 발생시)
+    const transactionsChannel = supabase
+      .channel(`user_transactions_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('💳 [transactions 테이블] 입출금 이벤트 감지:', payload);
+          // transactions 변경 시 즉시 보유금 재조회
+          fetchBalance();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔕 보유금 실시간 구독 해제:', user.id);
+      supabase.removeChannel(usersChannel);
+      supabase.removeChannel(transactionsChannel);
+    };
+  }, [user.id]);
+
+  // 포인트를 잔고로 전환
+  const convertPointsToBalance = async () => {
+    if (balance.points <= 0) {
+      toast.error('전환할 포인트가 없습니다.');
+      return;
+    }
+
+    try {
+      const pointsToConvert = balance.points;
+      
+      // 포인트 차감 및 잔고 증가
+      const { error: userError } = await supabase
+        .from('users')
+        .update({
+          points: 0,
+          balance: balance.balance + pointsToConvert
+        })
+        .eq('id', user.id);
+
+      if (userError) throw userError;
+
+      // 포인트 거래 기록
+      await supabase
+        .from('point_transactions')
+        .insert([{
+          user_id: user.id,
+          transaction_type: 'convert_to_balance',
+          amount: pointsToConvert,
+          points_before: balance.points,
+          points_after: 0,
+          memo: '포인트를 보유금으로 전환'
+        }]);
+
+      // 잔고 거래 기록
+      await supabase
+        .from('transactions')
+        .insert([{
+          user_id: user.id,
+          transaction_type: 'point_conversion',
+          amount: pointsToConvert,
+          status: 'completed',
+          balance_before: balance.balance,
+          balance_after: balance.balance + pointsToConvert,
+          memo: '포인트 전환'
+        }]);
+
+      // 잔고 정보 새로고침
+      await fetchBalance();
+      setShowPointsDialog(false);
+      toast.success(`${pointsToConvert.toLocaleString()}P가 보유금으로 전환되었습니다.`);
+    } catch (error: any) {
+      console.error('포인트 전환 오류:', error);
+      toast.error(error.message || '포인트 전환 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 읽지 않은 메시지 수 조회
+  const fetchUnreadCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('receiver_type', 'user')
+        .eq('receiver_id', user.id)
+        .eq('status', 'unread');
+
+      if (error) throw error;
+      setUnreadCount(count || 0);
+    } catch (error) {
+      console.error('읽지 않은 메시지 수 조회 오류:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchBalance();
+    fetchUnreadCount();
+
+    // 전역 잔고 업데이트 함수 등록
+    if (typeof window !== 'undefined') {
+      (window as any).updateUserBalance = (newBalance: number) => {
+        setBalance(prev => ({
+          ...prev,
+          balance: newBalance
+        }));
+      };
+    }
+
+    // 실시간 잔고 업데이트 구독
+    const balanceSubscription = supabase
+      .channel('user_balance_updates')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users',
+        filter: `id=eq.${user.id}`
+      }, () => {
+        fetchBalance();
+      })
+      .subscribe();
+
+    // 실시간 메시지 업데이트 구독
+    const messageSubscription = supabase
+      .channel('user_message_updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'messages',
+        filter: `receiver_id=eq.${user.id}`
+      }, () => {
+        fetchUnreadCount();
+      })
+      .subscribe();
+
+    return () => {
+      balanceSubscription.unsubscribe();
+      messageSubscription.unsubscribe();
+    };
+  }, [user.id]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('ko-KR').format(amount);
+  };
+
+  const getVipBadge = (vipLevel: number) => {
+    if (vipLevel >= 5) return { label: 'DIAMOND', color: 'bg-purple-600' };
+    if (vipLevel >= 4) return { label: 'PLATINUM', color: 'bg-gray-400' };
+    if (vipLevel >= 3) return { label: 'GOLD', color: 'bg-yellow-500' };
+    if (vipLevel >= 2) return { label: 'SILVER', color: 'bg-gray-300' };
+    if (vipLevel >= 1) return { label: 'BRONZE', color: 'bg-orange-400' };
+    return { label: 'MEMBER', color: 'bg-slate-500' };
+  };
+
+  const vipBadge = getVipBadge(user.vip_level || 0);
+
+  return (
+    <>
+      {/* Desktop Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-b border-yellow-600/30 shadow-2xl">
+        {/* 골든 라인 효과 */}
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-60" />
+        
+        <div className="container mx-auto px-3 sm:px-4 max-w-full">
+          <div className="flex items-center justify-between h-16 min-w-0">
+            {/* 로고 */}
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+              <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden golden-border">
+                <div className="absolute inset-0 bg-gradient-to-br from-yellow-500 via-red-600 to-yellow-500" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Crown className="w-5 h-5 sm:w-7 sm:h-7 text-white drop-shadow-lg relative z-10" />
+                </div>
+              </div>
+              <div className="hidden sm:block">
+                <div className="text-lg sm:text-2xl font-bold gold-text neon-glow tracking-wide">VIP CASINO</div>
+                <div className="text-[9px] sm:text-[10px] text-yellow-400 tracking-widest uppercase">LUXURY EXPERIENCE</div>
+              </div>
+            </div>
+
+            {/* Desktop Navigation - VIP 스타일 */}
+            <nav className="hidden lg:flex items-center space-x-1 xl:space-x-2 flex-shrink-0">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentRoute === item.path;
+                return (
+                  <Button
+                    key={item.path}
+                    variant="ghost"
+                    onClick={() => onRouteChange(item.path)}
+                    className={`
+                      relative px-2 xl:px-4 py-2 text-xs xl:text-sm font-semibold transition-all duration-300 whitespace-nowrap
+                      ${isActive 
+                        ? 'bg-gradient-to-r from-yellow-600 to-red-600 text-white shadow-lg shadow-yellow-500/50 border border-yellow-400/50' 
+                        : 'text-yellow-200/80 hover:text-yellow-100 hover:bg-yellow-900/20 border border-transparent hover:border-yellow-600/30'
+                      }
+                    `}
+                  >
+                    <Icon className={`w-3 h-3 xl:w-4 xl:h-4 mr-1 xl:mr-2 ${isActive ? 'drop-shadow-lg' : ''}`} />
+                    <span className="hidden xl:inline">{item.label}</span>
+                    <span className="xl:hidden">{item.label.substring(0, 2)}</span>
+                    {isActive && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-300 to-transparent" />
+                    )}
+                  </Button>
+                );
+              })}
+            </nav>
+
+            {/* Right Section */}
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+              {/* 잔고 정보 - VIP 럭셔리 스타일 */}
+              <div className="hidden md:flex items-center space-x-2 lg:space-x-3 luxury-card rounded-xl px-2 lg:px-4 py-2 lg:py-2.5">
+                <div className="flex items-center space-x-1 lg:space-x-2 group cursor-pointer">
+                  <div className="p-1 lg:p-1.5 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/30">
+                    <Wallet className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[8px] lg:text-[10px] text-yellow-400/70 tracking-wide">BALANCE</div>
+                    <div className="text-xs lg:text-sm font-bold text-green-400 jackpot-counter">
+                      ₩{formatCurrency(balance.balance)}
+                    </div>
+                  </div>
+                </div>
+                <div className="w-px h-8 lg:h-10 bg-gradient-to-b from-transparent via-yellow-600/50 to-transparent"></div>
+                <button
+                  onClick={() => setShowPointsDialog(true)}
+                  className="flex items-center space-x-1 lg:space-x-2 cursor-pointer group hover:scale-105 transition-transform"
+                >
+                  <div className="p-1 lg:p-1.5 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-600 shadow-lg shadow-yellow-500/30">
+                    <Coins className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[8px] lg:text-[10px] text-yellow-400/70 tracking-wide">POINTS</div>
+                    <div className="text-xs lg:text-sm font-bold text-yellow-400">
+                      {formatCurrency(balance.points)}P
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* 사용자 정보 - VIP 럭셔리 스타일 */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center space-x-1 sm:space-x-2 text-yellow-100 hover:text-white hover:bg-yellow-900/20 border border-transparent hover:border-yellow-600/30 luxury-card px-2 sm:px-3 py-2 min-w-0">
+                    <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
+                      <Badge className={`vip-badge ${vipBadge.color} text-white px-1.5 sm:px-2.5 py-0.5 sm:py-1 border border-yellow-400/30`}>
+                        <Crown className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1 drop-shadow-lg" />
+                        <span className="font-bold tracking-wide text-xs sm:text-sm">{vipBadge.label}</span>
+                      </Badge>
+                      <span className="font-semibold text-yellow-100 text-sm hidden sm:inline truncate max-w-20">{user.nickname}</span>
+                    </div>
+                    <User className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 luxury-card border-yellow-600/30" align="end">
+                  <DropdownMenuItem 
+                    onClick={() => onRouteChange('/user/profile')}
+                    className="text-yellow-100 hover:text-white hover:bg-yellow-900/30 cursor-pointer"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    내 정보
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onRouteChange('/user/deposit')}
+                    className="text-green-400 hover:text-green-300 hover:bg-green-900/30 cursor-pointer"
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    입금신청
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onRouteChange('/user/withdraw')}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-900/30 cursor-pointer"
+                  >
+                    <ArrowUpDown className="w-4 h-4 mr-2" />
+                    출금신청
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-yellow-600/30" />
+                  <DropdownMenuItem 
+                    onClick={onLogout}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-900/30 cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    로그아웃
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Mobile Menu Button */}
+              <div className="lg:hidden">
+                <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white">
+                      <Menu className="w-6 h-6" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-80 bg-slate-900 border-slate-700">
+                    <SheetHeader>
+                      <SheetTitle className="text-white text-left">메뉴</SheetTitle>
+                    </SheetHeader>
+                    <div className="mt-6 space-y-2">
+                      {/* Mobile 잔고 정보 */}
+                      <div className="bg-slate-800/50 rounded-lg p-4 mb-6">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-300">보유금</span>
+                            <span className="text-lg font-bold text-green-400">₩{formatCurrency(balance.balance)}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-300">포인트</span>
+                            <button
+                              onClick={() => setShowPointsDialog(true)}
+                              className="text-lg font-bold text-yellow-400 hover:opacity-80 transition-opacity"
+                            >
+                              {formatCurrency(balance.points)}P
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mobile Navigation */}
+                      {menuItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentRoute === item.path;
+                        return (
+                          <Button
+                            key={item.path}
+                            variant="ghost"
+                            onClick={() => {
+                              onRouteChange(item.path);
+                              setIsMobileMenuOpen(false);
+                            }}
+                            className={`
+                              w-full justify-start text-left px-4 py-3 h-auto
+                              ${isActive 
+                                ? 'bg-blue-600 text-white' 
+                                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                              }
+                            `}
+                          >
+                            <Icon className="w-5 h-5 mr-3" />
+                            {item.label}
+                          </Button>
+                        );
+                      })}
+
+                      <div className="pt-4 mt-4 border-t border-slate-700">
+                        <Button
+                          variant="ghost"
+                          onClick={onLogout}
+                          className="w-full justify-start text-left px-4 py-3 h-auto text-red-400 hover:text-red-300 hover:bg-slate-800"
+                        >
+                          <LogOut className="w-5 h-5 mr-3" />
+                          로그아웃
+                        </Button>
+                      </div>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Bottom Navigation - VIP 럭셔리 스타일 */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-yellow-600/30 shadow-2xl overflow-x-hidden">
+        {/* 상단 골든 라인 */}
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-500 to-transparent" />
+        
+        <div className="flex items-center justify-around py-2 px-2 safe-area-bottom">
+          {menuItems.slice(0, 5).map((item) => {
+            const Icon = item.icon;
+            const isActive = currentRoute === item.path;
+            return (
+              <Button
+                key={item.path}
+                variant="ghost"
+                size="sm"
+                onClick={() => onRouteChange(item.path)}
+                className={`
+                  flex flex-col items-center space-y-0.5 px-1 py-2 min-h-12 relative flex-1 max-w-20
+                  ${isActive 
+                    ? 'text-yellow-400' 
+                    : 'text-yellow-200/70 hover:text-yellow-100'
+                  }
+                `}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? 'drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : ''}`} />
+                <span className={`text-[9px] font-semibold tracking-wide ${isActive ? 'neon-glow' : ''} truncate`}>
+                  {item.label}
+                </span>
+                {isActive && (
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-6 h-0.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent rounded-full" />
+                )}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 포인트 전환 확인 다이얼로그 */}
+      <AlertDialog open={showPointsDialog} onOpenChange={setShowPointsDialog}>
+        <AlertDialogContent className="bg-slate-800 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">포인트 전환</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              {balance.points > 0 ? (
+                <>
+                  보유하신 <span className="text-yellow-400 font-bold">{formatCurrency(balance.points)}P</span>를 
+                  보유금으로 전환하시겠습니까?
+                </>
+              ) : (
+                <span className="text-slate-400">전환 가능한 포인트가 없습니다.</span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-700 text-white hover:bg-slate-600 border-slate-600">
+              {balance.points > 0 ? '취소' : '확인'}
+            </AlertDialogCancel>
+            {balance.points > 0 && (
+              <AlertDialogAction
+                onClick={convertPointsToBalance}
+                className="bg-blue-600 text-white hover:bg-blue-700"
+              >
+                전환하기
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

@@ -1,0 +1,1025 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Badge } from "../ui/badge";
+import { DataTable } from "../common/DataTable";
+import { LoadingSpinner } from "../common/LoadingSpinner";
+import { AdminDialog as Dialog, AdminDialogContent as DialogContent, AdminDialogDescription as DialogDescription, AdminDialogHeader as DialogHeader, AdminDialogTitle as DialogTitle, AdminDialogTrigger as DialogTrigger } from "./AdminDialog";
+import { Label } from "../ui/label";
+import { MessageSquare, Send, Reply, Search, User, Clock, CheckCircle, AlertCircle, Users, Filter } from "lucide-react";
+import { toast } from "sonner@2.0.3";
+import { supabase } from "../../lib/supabase";
+import { useWebSocketContext } from "../../contexts/WebSocketContext";
+
+interface User {
+  id: string;
+  level: number;
+  username?: string;
+}
+
+interface MessageCenterProps {
+  user: User;
+}
+
+interface Message {
+  id: string;
+  sender_type: string;
+  sender_id: string;
+  sender_username: string;
+  recipient_type: string;
+  recipient_id: string;
+  recipient_username: string;
+  title?: string;
+  content: string;
+  message_type: string;
+  is_read: boolean;
+  read_at?: string;
+  parent_message_id?: string;
+  created_at: string;
+  reply_count?: number;
+}
+
+export function MessageCenter({ user }: MessageCenterProps) {
+  // 접근 권한 확인 (매장 등급 이상, level 6 이상)
+  if (user.level > 6) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-4">
+          <MessageSquare className="h-12 w-12 text-yellow-500 mx-auto" />
+          <p className="text-muted-foreground">메시지 센터는 매장 이상만 접근 가능합니다.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const [loading, setLoading] = useState(true); // 초기 로드만 true
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [activeTab, setActiveTab] = useState('received'); // received, sent
+  const [messageTypeFilter, setMessageTypeFilter] = useState('all');
+  const [readFilter, setReadFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [isComposingNew, setIsComposingNew] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  
+  // 새 메시지 작성 폼
+  const [newMessageForm, setNewMessageForm] = useState({
+    recipient_type: 'user',
+    recipient_username: '',
+    broadcast_type: 'single', // single, selected, all
+    selected_users: [] as string[],
+    title: '',
+    content: '',
+    message_type: 'normal'
+  });
+
+  // 답장 폼
+  const [replyContent, setReplyContent] = useState('');
+
+  const { lastMessage, sendMessage } = useWebSocketContext();
+
+  // Supabase Realtime subscription (이벤트 발생시 자동 업데이트)
+  useEffect(() => {
+    const channel = supabase
+      .channel('messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          console.log('🔔 메시지 테이블 변경 감지:', payload);
+          fetchMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // 사용자 검색 필터링
+  useEffect(() => {
+    if (!userSearchTerm.trim()) {
+      setFilteredUsers(availableUsers);
+    } else {
+      const filtered = availableUsers.filter(u => 
+        u.username.toLowerCase().includes(userSearchTerm.toLowerCase())
+      );
+      setFilteredUsers(filtered);
+    }
+  }, [userSearchTerm, availableUsers]);
+
+  // 사용자 목록 조회 (브로드캐스트용)
+  const fetchAvailableUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      
+      const table = newMessageForm.recipient_type === 'user' ? 'users' : 'partners';
+      const { data, error } = await supabase
+        .from(table)
+        .select('id, username')
+        .order('username');
+
+      if (error) throw error;
+      setAvailableUsers(data || []);
+      setFilteredUsers(data || []);
+      setUserSearchTerm('');
+    } catch (error) {
+      console.error('사용자 목록 조회 오류:', error);
+      toast.error('사용자 목록을 불러오는데 실패했습니다.');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // 메시지 목록 조회
+  const fetchMessages = async () => {
+    try {
+      setLoading(true);
+      
+      let query = supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // 받은 메시지 / 보낸 메시지 필터
+      if (activeTab === 'received') {
+        query = query
+          .eq('receiver_type', 'partner')
+          .eq('receiver_id', user.id);
+      } else {
+        query = query
+          .eq('sender_type', 'partner')
+          .eq('sender_id', user.id);
+      }
+
+      // 필터 적용
+      if (messageTypeFilter !== 'all') {
+        query = query.eq('message_type', messageTypeFilter);
+      }
+      
+      if (readFilter !== 'all') {
+        const isRead = readFilter === 'read';
+        query = query.eq('status', isRead ? 'read' : 'unread');
+      }
+      
+      if (searchTerm) {
+        query = query.or(`subject.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // 메시지에 대한 답글 수 및 사용자 정보 조회
+      const messagesWithDetails = await Promise.all(
+        (data || []).map(async (message: any) => {
+          // 답글 수 조회
+          const { count } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact' })
+            .eq('parent_id', message.id);
+
+          // 발신자 정보 조회
+          let senderUsername = '알 수 없음';
+          if (message.sender_type === 'user') {
+            const { data: senderData } = await supabase
+              .from('users')
+              .select('username')
+              .eq('id', message.sender_id)
+              .single();
+            senderUsername = senderData?.username || '사용자';
+          } else if (message.sender_type === 'partner') {
+            const { data: senderData } = await supabase
+              .from('partners')
+              .select('username')
+              .eq('id', message.sender_id)
+              .single();
+            senderUsername = senderData?.username || '관리자';
+          }
+
+          // 수신자 정보 조회
+          let recipientUsername = '알 수 없음';
+          if (message.receiver_type === 'user') {
+            const { data: recipientData } = await supabase
+              .from('users')
+              .select('username')
+              .eq('id', message.receiver_id)
+              .single();
+            recipientUsername = recipientData?.username || '사용자';
+          } else if (message.receiver_type === 'partner') {
+            const { data: recipientData } = await supabase
+              .from('partners')
+              .select('username')
+              .eq('id', message.receiver_id)
+              .single();
+            recipientUsername = recipientData?.username || '관리자';
+          }
+
+          return {
+            id: message.id,
+            sender_type: message.sender_type,
+            sender_id: message.sender_id,
+            sender_username: senderUsername,
+            recipient_type: message.receiver_type,
+            recipient_id: message.receiver_id,
+            recipient_username: recipientUsername,
+            title: message.subject,
+            content: message.content,
+            message_type: message.message_type,
+            is_read: message.status === 'read',
+            read_at: message.read_at,
+            parent_message_id: message.parent_id,
+            created_at: message.created_at,
+            reply_count: count || 0
+          };
+        })
+      );
+
+      setMessages(messagesWithDetails);
+    } catch (error) {
+      console.error('메시지 조회 오류:', error);
+      toast.error('메시지를 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 메시지 읽음 처리
+  const markAsRead = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ 
+          status: 'read', 
+          read_at: new Date().toISOString() 
+        })
+        .eq('id', messageId)
+        .eq('status', 'unread'); // 이미 읽은 메시지는 업데이트 안함
+
+      if (error) throw error;
+
+      // 로컬 상태 업데이트
+      setMessages(prev => prev.map(message => 
+        message.id === messageId ? { ...message, is_read: true, read_at: new Date().toISOString() } : message
+      ));
+    } catch (error) {
+      console.error('메시지 읽음 처리 오류:', error);
+    }
+  };
+
+  // 새 메시지 전송
+  const sendNewMessage = async () => {
+    if (!newMessageForm.content.trim()) {
+      toast.error('메시지 내용을 입력해주세요.');
+      return;
+    }
+
+    // 브로드캐스트 타입별 유효성 검사
+    if (newMessageForm.broadcast_type === 'single' && !newMessageForm.recipient_username.trim()) {
+      toast.error('수신자를 입력해주세요.');
+      return;
+    }
+
+    if (newMessageForm.broadcast_type === 'selected' && newMessageForm.selected_users.length === 0) {
+      toast.error('수신자를 선택해주세요.');
+      return;
+    }
+
+    try {
+      let recipients: any[] = [];
+
+      if (newMessageForm.broadcast_type === 'single') {
+        // 단일 수신자
+        const table = newMessageForm.recipient_type === 'user' ? 'users' : 'partners';
+        const { data: recipient, error: recipientError } = await supabase
+          .from(table)
+          .select('id, username')
+          .eq('username', newMessageForm.recipient_username.trim())
+          .single();
+
+        if (recipientError || !recipient) {
+          toast.error('수신자를 찾을 수 없습니다.');
+          return;
+        }
+        recipients = [recipient];
+
+      } else if (newMessageForm.broadcast_type === 'selected') {
+        // 선택된 수신자들
+        const table = newMessageForm.recipient_type === 'user' ? 'users' : 'partners';
+        const { data: selectedRecipients, error: recipientError } = await supabase
+          .from(table)
+          .select('id, username')
+          .in('username', newMessageForm.selected_users);
+
+        if (recipientError) {
+          toast.error('수신자 조회에 실패했습니다.');
+          return;
+        }
+        recipients = selectedRecipients || [];
+
+      } else if (newMessageForm.broadcast_type === 'all') {
+        // 모든 사용자
+        const table = newMessageForm.recipient_type === 'user' ? 'users' : 'partners';
+        const { data: allRecipients, error: recipientError } = await supabase
+          .from(table)
+          .select('id, username');
+
+        if (recipientError) {
+          toast.error('전체 사용자 조회에 실패했습니다.');
+          return;
+        }
+        recipients = allRecipients || [];
+      }
+
+      if (recipients.length === 0) {
+        toast.error('전송할 수신자가 없습니다.');
+        return;
+      }
+
+      // 메시지 데이터 준비
+      const messagesData = recipients.map(recipient => ({
+        sender_type: 'partner',
+        sender_id: user.id,
+        receiver_type: newMessageForm.recipient_type,
+        receiver_id: recipient.id,
+        subject: newMessageForm.title || null,
+        content: newMessageForm.content.trim(),
+        message_type: newMessageForm.message_type
+      }));
+
+      // 배치 전송
+      const { error } = await supabase
+        .from('messages')
+        .insert(messagesData);
+
+      if (error) throw error;
+
+      const recipientCount = recipients.length;
+      toast.success(`메시지가 ${recipientCount}명에게 전송되었습니다.`);
+      
+      // WebSocket으로 실시간 알림 전송
+      if (sendMessage) {
+        recipients.forEach(recipient => {
+          sendMessage('new_message', {
+            recipient_type: newMessageForm.recipient_type,
+            recipient_id: recipient.id,
+            title: newMessageForm.title,
+            content: newMessageForm.content
+          });
+        });
+      }
+
+      setNewMessageForm({
+        recipient_type: 'user',
+        recipient_username: '',
+        broadcast_type: 'single',
+        selected_users: [],
+        title: '',
+        content: '',
+        message_type: 'normal'
+      });
+      setIsComposingNew(false);
+      setIsDialogOpen(false);
+      fetchMessages();
+    } catch (error) {
+      console.error('메시지 전송 오류:', error);
+      toast.error('메시지 전송에 실패했습니다.');
+    }
+  };
+
+  // 답장 전송
+  const sendReply = async () => {
+    if (!selectedMessage || !replyContent.trim()) {
+      toast.error('답장 내용을 입력해주세요.');
+      return;
+    }
+
+    try {
+      const replyData = {
+        sender_type: 'partner',
+        sender_id: user.id,
+        receiver_type: selectedMessage.sender_type,
+        receiver_id: selectedMessage.sender_id,
+        subject: selectedMessage.title ? `Re: ${selectedMessage.title}` : null,
+        content: replyContent.trim(),
+        message_type: 'normal',
+        parent_id: selectedMessage.id
+      };
+
+      const { error } = await supabase
+        .from('messages')
+        .insert([replyData]);
+
+      if (error) throw error;
+
+      toast.success('답장이 전송되었습니다.');
+      setReplyContent('');
+      setIsDialogOpen(false);
+      fetchMessages();
+    } catch (error) {
+      console.error('답장 전송 오류:', error);
+      toast.error('답장 전송에 실패했습니다.');
+    }
+  };
+
+  // WebSocket으로 새 메시지 알림 수신
+  useEffect(() => {
+    if (lastMessage && lastMessage.type === 'new_message') {
+      toast.info('새로운 메시지가 도착했습니다.');
+      fetchMessages(); // 목록 새로고침
+    }
+  }, [lastMessage]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [activeTab, messageTypeFilter, readFilter]);
+
+  // 디바운스 검색
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm !== undefined) {
+        fetchMessages();
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const columns = [
+    {
+      key: 'sender_username',
+      title: activeTab === 'received' ? '발신자' : '수신자',
+      render: (value: string, row: Message) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <div>
+            <div className="font-medium">{activeTab === 'received' ? row.sender_username : row.recipient_username}</div>
+            <div className="text-xs text-muted-foreground">
+              {activeTab === 'received' ? row.sender_type : row.recipient_type}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'title',
+      title: '제목/내용',
+      render: (value: string, row: Message) => (
+        <div className={`${!row.is_read && activeTab === 'received' ? 'font-semibold' : ''}`}>
+          <div className="text-sm">{value || '(제목 없음)'}</div>
+          <div className="text-xs text-muted-foreground truncate max-w-[300px]">
+            {row.content}
+          </div>
+          {row.reply_count > 0 && (
+            <Badge variant="outline" className="text-xs mt-1">
+              답글 {row.reply_count}개
+            </Badge>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'message_type',
+      title: '유형',
+      render: (value: string) => {
+        const typeConfig: Record<string, { label: string, variant: any }> = {
+          'normal': { label: '일반', variant: 'secondary' },
+          'system': { label: '시스템', variant: 'outline' },
+          'urgent': { label: '긴급', variant: 'destructive' }
+        };
+        const config = typeConfig[value] || typeConfig.normal;
+        return <Badge variant={config.variant}>{config.label}</Badge>;
+      }
+    },
+    {
+      key: 'is_read',
+      title: '읽음',
+      render: (value: boolean, row: Message) => (
+        <div className="flex items-center gap-1">
+          {value ? (
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          ) : (
+            <AlertCircle className="h-4 w-4 text-red-600" />
+          )}
+          <span className="text-xs">
+            {value ? '읽음' : '안읽음'}
+          </span>
+        </div>
+      )
+    },
+    {
+      key: 'created_at',
+      title: '날짜',
+      render: (value: string) => (
+        <div className="text-sm">
+          {new Date(value).toLocaleDateString('ko-KR')}
+          <div className="text-xs text-muted-foreground">
+            {new Date(value).toLocaleTimeString('ko-KR')}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'actions',
+      title: '관리',
+      render: (value: any, row: Message) => (
+        <Dialog open={isDialogOpen && selectedMessage?.id === row.id} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (open) {
+            setSelectedMessage(row);
+            setReplyContent('');
+            setIsComposingNew(false);
+            // 메시지 읽음 처리
+            if (!row.is_read && activeTab === 'received') {
+              markAsRead(row.id);
+            }
+          } else {
+            setSelectedMessage(null);
+          }
+        }}>
+          <DialogTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 px-3 flex items-center gap-1"
+            >
+              <MessageSquare className="h-4 w-4" />
+              보기
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {activeTab === 'received' ? '받은 메시지' : '보낸 메시지'} - {row.title || '(제목 없음)'}
+              </DialogTitle>
+              <DialogDescription>
+                메시지 내용을 확인하고 {activeTab === 'received' ? '답장을 작성할 수 있습니다' : '전송된 메시지의 상세 정보를 확인할 수 있습니다'}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>발신자</Label>
+                  <p className="text-sm font-medium">{row.sender_username}</p>
+                </div>
+                <div>
+                  <Label>수신자</Label>
+                  <p className="text-sm font-medium">{row.recipient_username}</p>
+                </div>
+                <div>
+                  <Label>전송일시</Label>
+                  <p className="text-sm">{new Date(row.created_at).toLocaleString('ko-KR')}</p>
+                </div>
+                <div>
+                  <Label>메시지 유형</Label>
+                  <p className="text-sm">{row.message_type}</p>
+                </div>
+              </div>
+              
+              <div>
+                <Label>메시지 내용</Label>
+                <div className="p-3 bg-muted rounded-md mt-1">
+                  <p className="text-sm whitespace-pre-wrap">{row.content}</p>
+                </div>
+              </div>
+
+              {activeTab === 'received' && (
+                <div>
+                  <Label htmlFor="reply">답장 작성</Label>
+                  <Textarea
+                    id="reply"
+                    placeholder="답장 내용을 입력하세요..."
+                    value={replyContent}
+                    onChange={(e) => setReplyContent(e.target.value)}
+                    rows={4}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
+                  닫기
+                </Button>
+                {activeTab === 'received' && (
+                  <Button
+                    onClick={sendReply}
+                    disabled={!replyContent.trim()}
+                  >
+                    <Reply className="h-4 w-4 mr-2" />
+                    답장 보내기
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )
+    }
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-slate-100">메시지 센터</h1>
+          <p className="text-sm text-slate-400">
+            사용자와 관리자 간 1:1 메시지를 주고받습니다. (개별, 선택, 전체 전송 지원)
+          </p>
+        </div>
+        <Dialog open={isDialogOpen && isComposingNew} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (open) {
+            setIsComposingNew(true);
+            setSelectedMessage(null);
+            setUserSearchTerm('');
+          } else {
+            setUserSearchTerm('');
+            setAvailableUsers([]);
+            setFilteredUsers([]);
+          }
+        }}>
+          <DialogTrigger asChild>
+            <Button className="btn-premium-primary">
+              <Send className="h-4 w-4 mr-2" />
+              새 메시지
+            </Button>
+          </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  새 메시지 작성
+                </DialogTitle>
+                <DialogDescription>
+                  개별, 선택, 또는 전체 사용자에게 메시지를 전송할 수 있습니다. 전송 방식을 선택하고 메시지 내용을 작성해주세요.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="recipient_type">수신자 유형</Label>
+                    <Select 
+                      value={newMessageForm.recipient_type} 
+                      onValueChange={(value) => {
+                        setNewMessageForm(prev => ({ 
+                          ...prev, 
+                          recipient_type: value,
+                          recipient_username: '',
+                          selected_users: []
+                        }));
+                        setAvailableUsers([]);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">사용자</SelectItem>
+                        <SelectItem value="partner">관리자</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="broadcast_type">전송 방식</Label>
+                    <Select 
+                      value={newMessageForm.broadcast_type} 
+                      onValueChange={(value) => {
+                        setNewMessageForm(prev => ({ 
+                          ...prev, 
+                          broadcast_type: value,
+                          recipient_username: '',
+                          selected_users: []
+                        }));
+                        if (value === 'selected' || value === 'all') {
+                          fetchAvailableUsers();
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single">개별 전송</SelectItem>
+                        <SelectItem value="selected">선택 전송</SelectItem>
+                        <SelectItem value="all">전체 전송</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* 개별 전송일 때만 수신자 입력 필드 표시 */}
+                {newMessageForm.broadcast_type === 'single' && (
+                  <div>
+                    <Label htmlFor="recipient_username">수신자 검색</Label>
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                        <Input
+                          id="recipient_username"
+                          value={newMessageForm.recipient_username}
+                          onChange={(e) => setNewMessageForm(prev => ({ ...prev, recipient_username: e.target.value }))}
+                          placeholder="수신자 ID를 입력하세요 (예: smcdev111)"
+                          className="pl-9 input-premium"
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        💡 Tip: 사용자가 많은 경우 "선택 전송"을 이용하시면 검색하여 선택할 수 있습니다.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 선택 전송일 때 사용자 선택 리스트 */}
+                {newMessageForm.broadcast_type === 'selected' && (
+                  <div>
+                    <Label>수신자 선택</Label>
+                    {loadingUsers ? (
+                      <div className="flex items-center justify-center p-8 text-slate-400">
+                        <div className="loading-premium w-8 h-8"></div>
+                        <span className="ml-3">사용자 목록 로딩 중...</span>
+                      </div>
+                    ) : (
+                      <div className="mt-2 space-y-3">
+                        {/* 검색 필터 */}
+                        <div className="relative">
+                          <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                          <Input
+                            value={userSearchTerm}
+                            onChange={(e) => setUserSearchTerm(e.target.value)}
+                            placeholder="사용자 ID로 검색..."
+                            className="pl-9 input-premium"
+                          />
+                        </div>
+                        
+                        {/* 전체 선택/해제 버튼 */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-300">
+                            {filteredUsers.length}명 표시 중 / 총 {availableUsers.length}명
+                          </span>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const allUsernames = filteredUsers.map(u => u.username);
+                                setNewMessageForm(prev => ({
+                                  ...prev,
+                                  selected_users: Array.from(new Set([...prev.selected_users, ...allUsernames]))
+                                }));
+                              }}
+                              className="btn-premium-success text-xs px-2 py-1 h-7"
+                            >
+                              현재 페이지 전체 선택
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setNewMessageForm(prev => ({
+                                  ...prev,
+                                  selected_users: []
+                                }));
+                              }}
+                              className="text-xs px-2 py-1 h-7"
+                            >
+                              전체 해제
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* 사용자 목록 */}
+                        <div className="max-h-64 overflow-y-auto border border-slate-600 rounded-lg bg-slate-900/50 p-3 space-y-1">
+                          {filteredUsers.map((availableUser) => (
+                            <label 
+                              key={availableUser.id} 
+                              className="flex items-center space-x-3 cursor-pointer hover:bg-slate-800/50 p-2 rounded transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={newMessageForm.selected_users.includes(availableUser.username)}
+                                onChange={(e) => {
+                                  const username = availableUser.username;
+                                  if (e.target.checked) {
+                                    setNewMessageForm(prev => ({
+                                      ...prev,
+                                      selected_users: [...prev.selected_users, username]
+                                    }));
+                                  } else {
+                                    setNewMessageForm(prev => ({
+                                      ...prev,
+                                      selected_users: prev.selected_users.filter(u => u !== username)
+                                    }));
+                                  }
+                                }}
+                                className="rounded w-4 h-4"
+                              />
+                              <span className="text-sm text-slate-200">{availableUser.username}</span>
+                            </label>
+                          ))}
+                          {filteredUsers.length === 0 && (
+                            <div className="text-center text-sm text-slate-500 py-8">
+                              {userSearchTerm ? '검색 결과가 없습니다.' : '사용자가 없습니다.'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {newMessageForm.selected_users.length > 0 && (
+                      <div className="mt-3 p-3 bg-blue-900/30 border border-blue-600/30 rounded-lg">
+                        <div className="text-sm text-blue-300 flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          <strong>선택된 사용자:</strong> {newMessageForm.selected_users.length}명
+                        </div>
+                        <div className="text-xs text-blue-400 mt-2 max-h-24 overflow-y-auto">
+                          {newMessageForm.selected_users.join(', ')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 전체 전송일 때 확인 메시지 */}
+                {newMessageForm.broadcast_type === 'all' && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <div className="flex items-center gap-2 text-yellow-800 mb-2">
+                      <AlertCircle className="h-5 w-5" />
+                      <span className="font-medium">전체 전송 확인</span>
+                    </div>
+                    <p className="text-sm text-yellow-700">
+                      모든 {newMessageForm.recipient_type === 'user' ? '사용자' : '관리자'}에게 메시지가 전송됩니다.
+                      {availableUsers.length > 0 && (
+                        <span className="font-medium"> (총 {availableUsers.length}명)</span>
+                      )}
+                    </p>
+                    {availableUsers.length > 0 && (
+                      <div className="mt-2 text-xs text-yellow-600">
+                        대상: {availableUsers.map(u => u.username).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <Label htmlFor="new_title">제목 (선택)</Label>
+                  <Input
+                    id="new_title"
+                    value={newMessageForm.title}
+                    onChange={(e) => setNewMessageForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="메시지 제목을 입력하세요"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="new_content">내용 *</Label>
+                  <Textarea
+                    id="new_content"
+                    value={newMessageForm.content}
+                    onChange={(e) => setNewMessageForm(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="메시지 내용을 입력하세요"
+                    rows={6}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="message_type">메시지 유형</Label>
+                  <Select value={newMessageForm.message_type} onValueChange={(value) => setNewMessageForm(prev => ({ ...prev, message_type: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">일반</SelectItem>
+                      <SelectItem value="system">시스템</SelectItem>
+                      <SelectItem value="urgent">긴급</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                  >
+                    취소
+                  </Button>
+                  <Button
+                    onClick={sendNewMessage}
+                    disabled={!newMessageForm.content.trim() || 
+                      (newMessageForm.broadcast_type === 'single' && !newMessageForm.recipient_username.trim()) ||
+                      (newMessageForm.broadcast_type === 'selected' && newMessageForm.selected_users.length === 0)
+                    }
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    전송 
+                    {newMessageForm.broadcast_type === 'single' && ' (1명)'}
+                    {newMessageForm.broadcast_type === 'selected' && ` (${newMessageForm.selected_users.length}명)`}
+                    {newMessageForm.broadcast_type === 'all' && ` (${availableUsers.length}명)`}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+      </div>
+
+      <div className="glass-card rounded-xl p-6">
+        <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-700/50">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-100 flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-blue-400" />
+              메시지 목록
+            </h2>
+            <p className="text-sm text-slate-400 mt-1">
+              사용자와 관리자 간 메시지를 주고받고 관리합니다. 개별, 선택, 전체 전송을 지원합니다.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-4">
+            <div className="flex gap-2">
+              <Button
+                variant={activeTab === 'received' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('received')}
+                className={activeTab === 'received' ? 'btn-premium-primary' : ''}
+              >
+                받은 메시지
+              </Button>
+              <Button
+                variant={activeTab === 'sent' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('sent')}
+                className={activeTab === 'sent' ? 'btn-premium-primary' : ''}
+              >
+                보낸 메시지
+              </Button>
+            </div>
+            
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Input
+                  placeholder="제목, 내용으로 검색..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 input-premium"
+                />
+              </div>
+            </div>
+            
+            <Select value={messageTypeFilter} onValueChange={setMessageTypeFilter}>
+              <SelectTrigger className="w-[120px] bg-slate-800/50 border-slate-600">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 유형</SelectItem>
+                <SelectItem value="normal">일반</SelectItem>
+                <SelectItem value="system">시스템</SelectItem>
+                <SelectItem value="urgent">긴급</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {activeTab === 'received' && (
+              <Select value={readFilter} onValueChange={setReadFilter}>
+                <SelectTrigger className="w-[120px] bg-slate-800/50 border-slate-600">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="unread">안읽음</SelectItem>
+                  <SelectItem value="read">읽음</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <DataTable
+              data={messages}
+              columns={columns}
+              enableSearch={false}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default MessageCenter;
