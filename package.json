@@ -56,6 +56,6 @@
       },
       "scripts": {
             "dev": "vite",
-            "build": "dist"
+            "build": "vite build"
       }
 }
