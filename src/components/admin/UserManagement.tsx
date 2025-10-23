@@ -123,16 +123,14 @@ export function UserManagement() {
   });
 
   // 사용자 목록 조회 (하위 파트너 포함)
-  const fetchUsers = async () => {
+  const fetchUsers = async (silent = false) => {
     try {
-      setLoading(true);
-      console.log('👥 회원 목록 조회 시작...');
+      if (!silent) setLoading(true);
 
       let allowedReferrerIds: string[] = [];
 
       if (authState.user?.level === 1) {
         // 시스템관리자: 모든 사용자
-        console.log('🔓 시스템관리자: 모든 사용자 조회');
         const { data, error } = await supabase
           .from('users')
           .select(`
@@ -149,7 +147,6 @@ export function UserManagement() {
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        console.log(`✅ 회원 ${data?.length || 0}명 조회 완료`);
         setUsers(data || []);
         return;
       } else {
@@ -158,7 +155,6 @@ export function UserManagement() {
           .rpc('get_hierarchical_partners', { p_partner_id: authState.user?.id });
         
         allowedReferrerIds = [authState.user?.id || '', ...(hierarchicalPartners?.map((p: any) => p.id) || [])];
-        console.log('🔍 조회 대상 파트너 IDs:', allowedReferrerIds.length, '개');
       }
 
       const { data, error } = await supabase
@@ -178,15 +174,13 @@ export function UserManagement() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      console.log(`✅ 회원 ${data?.length || 0}명 조회 완료`);
       setUsers(data || []);
     } catch (error) {
       console.error('❌ 회원 목록 조회 실패:', error);
-      toast.error('회원 목록을 불러오는데 실패했습니다.');
+      if (!silent) toast.error('회원 목록을 불러오는데 실패했습니다.');
       setUsers([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -197,7 +191,7 @@ export function UserManagement() {
 
   // Realtime subscription for users table
   useEffect(() => {
-    // users 테이블 변경 감지
+    // users 테이블 변경 감지 - 깜박임 없는 업데이트
     const channel = supabase
       .channel('users-changes')
       .on(
@@ -209,8 +203,8 @@ export function UserManagement() {
         },
         (payload) => {
           console.log('👥 users 테이블 변경 감지:', payload);
-          // 데이터 새로고침
-          fetchUsers();
+          // silent 모드로 데이터 새로고침 (깜박임 없음)
+          fetchUsers(true);
         }
       )
       .subscribe();
@@ -220,11 +214,12 @@ export function UserManagement() {
     };
   }, []);
 
-  // WebSocket 메시지 처리
+  // WebSocket 메시지 처리 - 깜박임 없는 업데이트
   useEffect(() => {
     if (lastMessage?.type === 'user_balance_updated' || lastMessage?.type === 'user_updated') {
       console.log('🔔 사용자 업데이트 알림 수신:', lastMessage);
-      fetchUsers();
+      // silent 모드로 데이터 새로고침 (깜박임 없음)
+      fetchUsers(true);
     }
   }, [lastMessage]);
 
