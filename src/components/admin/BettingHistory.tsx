@@ -707,92 +707,130 @@ export function BettingHistory({ user }: BettingHistoryProps) {
 
             console.log(`📊 [AUTO-SYNC] OPCODE ${opcodeKey}: ${bettingRecords.length}건 처리 시작`);
 
-            // 베팅 기록 DB 저장
+            // ✅ 최적화: 해당 opcode 파트너의 모든 사용자 한번에 조회
+            const { data: allUsers } = await supabase
+              .from('users')
+              .select('id, username, referrer_id')
+              .in('referrer_id', opcodeInfo.partner_ids);
+
+            const userMap = new Map<string, { id: string, referrer_id: string }>();
+            if (allUsers) {
+              allUsers.forEach((u: any) => {
+                userMap.set(u.username, { id: u.id, referrer_id: u.referrer_id });
+              });
+            }
+
+            // ✅ 최적화: 기존 external_txid를 한번에 조회
+            const externalTxids = bettingRecords
+              .map(r => (r.id || r.txid)?.toString())
+              .filter(Boolean);
+
+            const { data: existingRecords } = await supabase
+              .from('game_records')
+              .select('external_txid, partner_id')
+              .in('external_txid', externalTxids)
+              .in('partner_id', opcodeInfo.partner_ids);
+
+            const existingTxidSet = new Set<string>();
+            if (existingRecords) {
+              existingRecords.forEach((r: any) => {
+                existingTxidSet.add(`${r.external_txid}_${r.partner_id}`);
+              });
+            }
+
+            // 배치 INSERT용 데이터 준비
+            const recordsToInsert: any[] = [];
+            const userBalances = new Map<string, number>();
+
             for (const record of bettingRecords) {
               try {
-                // username으로 user_id 조회 (해당 opcode를 사용하는 파트너들의 하위 사용자)
-                const { data: userData } = await supabase
-                  .from('users')
-                  .select('id, referrer_id')
-                  .eq('username', record.username)
-                  .in('referrer_id', opcodeInfo.partner_ids)
-                  .maybeSingle();
+                const username = record.username;
+                if (!username) continue;
 
+                const userData = userMap.get(username);
                 if (!userData) continue;
 
                 const externalTxid = (record.id || record.txid)?.toString();
                 if (!externalTxid) continue;
 
-                // 중복 체크
-                const { data: existing } = await supabase
-                  .from('game_records')
-                  .select('id')
-                  .eq('external_txid', externalTxid)
-                  .eq('partner_id', userData.referrer_id)
-                  .maybeSingle();
+                // 중복 체크 (메모리에서)
+                const uniqueKey = `${externalTxid}_${userData.referrer_id}`;
+                if (existingTxidSet.has(uniqueKey)) continue;
 
-                if (existing) continue;
+                // INSERT 데이터 준비
+                recordsToInsert.push({
+                  partner_id: userData.referrer_id,
+                  external_txid: externalTxid,
+                  username: username,
+                  user_id: userData.id,
+                  game_id: record.game || record.game_id,
+                  provider_id: Math.floor((record.game || record.game_id) / 1000),
+                  game_title: record.game_title || null,
+                  provider_name: record.provider_name || null,
+                  bet_amount: parseFloat(record.bet || record.bet_amount || '0'),
+                  win_amount: parseFloat(record.win || record.win_amount || '0'),
+                  balance_before: parseFloat(record.balance_before || '0'),
+                  balance_after: parseFloat(record.balance || record.balance_after || '0'),
+                  played_at: record.create_at || record.played_at || record.created_at || new Date().toISOString()
+                });
 
-                // 새 레코드 insert
-                const { error: insertError } = await supabase
-                  .from('game_records')
-                  .insert({
-                    partner_id: userData.referrer_id,
-                    external_txid: externalTxid,
-                    username: record.username,
-                    user_id: userData.id,
-                    game_id: record.game || record.game_id,
-                    provider_id: Math.floor((record.game || record.game_id) / 1000),
-                    game_title: record.game_title || null,
-                    provider_name: record.provider_name || null,
-                    bet_amount: parseFloat(record.bet || record.bet_amount || '0'),
-                    win_amount: parseFloat(record.win || record.win_amount || '0'),
-                    balance_before: parseFloat(record.balance_before || '0'),
-                    balance_after: parseFloat(record.balance || record.balance_after || '0'),
-                    played_at: record.create_at || record.played_at || record.created_at || new Date().toISOString()
-                  });
-
-                if (!insertError) {
-                  totalSaved++;
+                // 사용자 잔고 수집
+                if (record.balance !== undefined) {
+                  userBalances.set(username, parseFloat(record.balance));
                 }
+
+                // 중복 방지를 위해 Set에 추가
+                existingTxidSet.add(uniqueKey);
+
               } catch (err) {
                 // 개별 레코드 처리 실패는 무시
               }
             }
 
-            // 사용자 잔고 업데이트 (Active 세션 있는 경우만)
-            const userBalances = new Map<string, number>();
-            bettingRecords.forEach((record: any) => {
-              if (record.username && record.balance !== undefined) {
-                userBalances.set(record.username, record.balance);
+            // ✅ 배치 INSERT (최대 1000건씩)
+            if (recordsToInsert.length > 0) {
+              const batchSize = 1000;
+              for (let i = 0; i < recordsToInsert.length; i += batchSize) {
+                const batch = recordsToInsert.slice(i, i + batchSize);
+                
+                const { error: insertError } = await supabase
+                  .from('game_records')
+                  .insert(batch);
+
+                if (!insertError) {
+                  totalSaved += batch.length;
+                  console.log(`✅ [AUTO-SYNC] OPCODE ${opcodeKey} 배치 ${Math.floor(i / batchSize) + 1} 저장: ${batch.length}건`);
+                } else if (insertError.code !== '23505') {
+                  // 23505 = UNIQUE constraint 위반 (중복) - 무시
+                  console.error(`❌ [AUTO-SYNC] OPCODE ${opcodeKey} 배치 INSERT 오류:`, insertError);
+                }
               }
-            });
+            }
 
-            for (const [username, balance] of userBalances) {
-              const { data: userData } = await supabase
-                .from('users')
-                .select('id')
-                .eq('username', username)
-                .in('referrer_id', opcodeInfo.partner_ids)
-                .maybeSingle();
+            // ✅ 사용자 잔고 업데이트 (Active 세션 있는 경우만, 배치 처리)
+            if (userBalances.size > 0) {
+              console.log(`💰 [AUTO-SYNC] OPCODE ${opcodeKey} 잔고 업데이트 시작: ${userBalances.size}명`);
+              
+              for (const [username, balance] of userBalances) {
+                const userData = userMap.get(username);
+                if (!userData) continue;
 
-              if (!userData) continue;
+                // Active 세션 확인
+                const { data: activeSession } = await supabase
+                  .from('game_launch_sessions')
+                  .select('id')
+                  .eq('user_id', userData.id)
+                  .eq('status', 'active')
+                  .limit(1)
+                  .maybeSingle();
 
-              // Active 세션 확인
-              const { data: activeSession } = await supabase
-                .from('game_launch_sessions')
-                .select('id')
-                .eq('user_id', userData.id)
-                .eq('status', 'active')
-                .limit(1)
-                .maybeSingle();
-
-              // Active 세션이 있는 경우에만 잔고 업데이트
-              if (activeSession) {
-                await supabase
-                  .from('users')
-                  .update({ balance: balance })
-                  .eq('id', userData.id);
+                // Active 세션이 있는 경우에만 잔고 업데이트
+                if (activeSession) {
+                  await supabase
+                    .from('users')
+                    .update({ balance: balance })
+                    .eq('id', userData.id);
+                }
               }
             }
 
@@ -807,6 +845,8 @@ export function BettingHistory({ user }: BettingHistoryProps) {
           console.log(`✅ [AUTO-SYNC] 전체 완료: ${totalSaved}건 저장`);
           // 데이터 재로드
           await loadBettingData();
+        } else {
+          console.log(`ℹ️ [AUTO-SYNC] 새로운 베팅 데이터 없음`);
         }
         
       } catch (err) {

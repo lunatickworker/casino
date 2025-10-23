@@ -1,7 +1,7 @@
 
-  # 1190
+  # 1192
 
-  This is a code bundle for 1190. The original project is available at https://www.figma.com/design/JGdTsBezdHQF3vd7QGcStM/1190.
+  This is a code bundle for 1192. The original project is available at https://www.figma.com/design/PUcm6pF8RtCrwaZDRIelWz/1192.
 
   ## Running the code
 
