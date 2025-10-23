@@ -86,16 +86,16 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
     }
   };
 
-  // 실시간 잔고 업데이트 구독 (이벤트 발생 업데이트)
+  // 실시간 잔고 업데이트 구독 (이벤트 발생 업데이트) - 중복 제거 및 통합
   useEffect(() => {
     // 초기 잔고 로드
     fetchBalance();
 
     console.log('🔔 보유금 실시간 구독 시작:', user.id);
 
-    // 1. users 테이블 변경 감지 (보유금 직접 업데이트)
-    const usersChannel = supabase
-      .channel(`user_balance_${user.id}`)
+    // users 테이블과 transactions 테이블 통합 구독 (중복 제거)
+    const unifiedChannel = supabase
+      .channel(`user_balance_unified_${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -120,11 +120,6 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
           });
         }
       )
-      .subscribe();
-
-    // 2. transactions 테이블 변경 감지 (입출금 이벤트 발생시)
-    const transactionsChannel = supabase
-      .channel(`user_transactions_${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -143,8 +138,7 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
 
     return () => {
       console.log('🔕 보유금 실시간 구독 해제:', user.id);
-      supabase.removeChannel(usersChannel);
-      supabase.removeChannel(transactionsChannel);
+      supabase.removeChannel(unifiedChannel);
     };
   }, [user.id]);
 
@@ -222,7 +216,6 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
   };
 
   useEffect(() => {
-    fetchBalance();
     fetchUnreadCount();
 
     // 전역 잔고 업데이트 함수 등록
@@ -235,20 +228,7 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
       };
     }
 
-    // 실시간 잔고 업데이트 구독
-    const balanceSubscription = supabase
-      .channel('user_balance_updates')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'users',
-        filter: `id=eq.${user.id}`
-      }, () => {
-        fetchBalance();
-      })
-      .subscribe();
-
-    // 실시간 메시지 업데이트 구독
+    // 실시간 메시지 업데이트 구독만 유지 (잔고 구독은 위에서 처리)
     const messageSubscription = supabase
       .channel('user_message_updates')
       .on('postgres_changes', {
@@ -262,7 +242,6 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
       .subscribe();
 
     return () => {
-      balanceSubscription.unsubscribe();
       messageSubscription.unsubscribe();
     };
   }, [user.id]);

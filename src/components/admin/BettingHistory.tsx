@@ -652,23 +652,42 @@ export function BettingHistory({ user }: BettingHistoryProps) {
           return;
         }
 
+        // ✅ opcode별로 그룹핑 (중복 제거)
+        const opcodeMap = new Map<string, { opcode: string, secret_key: string, partner_ids: string[] }>();
+        
+        for (const partner of partners) {
+          if (!opcodeMap.has(partner.opcode)) {
+            opcodeMap.set(partner.opcode, {
+              opcode: partner.opcode,
+              secret_key: partner.secret_key,
+              partner_ids: [partner.id]
+            });
+          } else {
+            opcodeMap.get(partner.opcode)!.partner_ids.push(partner.id);
+          }
+        }
+
+        console.log(`📊 [AUTO-SYNC] 총 파트너: ${partners.length}개, 고유 OPCODE: ${opcodeMap.size}개`);
+
         let totalSaved = 0;
 
-        // 각 파트너별로 베팅 데이터 조회 및 저장
-        for (const partner of partners) {
+        // ✅ opcode별로 API 1번만 호출 (30초에 opcode당 1회)
+        for (const [opcodeKey, opcodeInfo] of opcodeMap) {
           try {
-            // API 호출
+            console.log(`📡 [AUTO-SYNC] OPCODE ${opcodeKey} API 호출 시작 (파트너 ${opcodeInfo.partner_ids.length}개 포함)`);
+            
+            // API 호출 (최대 4000개)
             const result = await investApi.getGameHistory(
-              partner.opcode,
+              opcodeInfo.opcode,
               year,
               month,
               0,
-              1000,
-              partner.secret_key
+              4000,
+              opcodeInfo.secret_key
             );
 
             if (result.error || !result.data) {
-              console.log(`⚠️ [AUTO-SYNC] 파트너 ${partner.id} API 호출 실패`);
+              console.log(`⚠️ [AUTO-SYNC] OPCODE ${opcodeKey} API 호출 실패:`, result.error);
               continue;
             }
 
@@ -682,21 +701,21 @@ export function BettingHistory({ user }: BettingHistoryProps) {
             }
 
             if (bettingRecords.length === 0) {
-              console.log(`ℹ️ [AUTO-SYNC] 파트너 ${partner.id} 베팅 데이터 없음`);
+              console.log(`ℹ️ [AUTO-SYNC] OPCODE ${opcodeKey} 베팅 데이터 없음`);
               continue;
             }
 
-            console.log(`📊 [AUTO-SYNC] 파트너 ${partner.id}: ${bettingRecords.length}건 처리`);
+            console.log(`📊 [AUTO-SYNC] OPCODE ${opcodeKey}: ${bettingRecords.length}건 처리 시작`);
 
             // 베팅 기록 DB 저장
             for (const record of bettingRecords) {
               try {
-                // username으로 user_id 조회
+                // username으로 user_id 조회 (해당 opcode를 사용하는 파트너들의 하위 사용자)
                 const { data: userData } = await supabase
                   .from('users')
-                  .select('id')
+                  .select('id, referrer_id')
                   .eq('username', record.username)
-                  .eq('referrer_id', partner.id)
+                  .in('referrer_id', opcodeInfo.partner_ids)
                   .maybeSingle();
 
                 if (!userData) continue;
@@ -709,7 +728,7 @@ export function BettingHistory({ user }: BettingHistoryProps) {
                   .from('game_records')
                   .select('id')
                   .eq('external_txid', externalTxid)
-                  .eq('partner_id', partner.id)
+                  .eq('partner_id', userData.referrer_id)
                   .maybeSingle();
 
                 if (existing) continue;
@@ -718,7 +737,7 @@ export function BettingHistory({ user }: BettingHistoryProps) {
                 const { error: insertError } = await supabase
                   .from('game_records')
                   .insert({
-                    partner_id: partner.id,
+                    partner_id: userData.referrer_id,
                     external_txid: externalTxid,
                     username: record.username,
                     user_id: userData.id,
@@ -754,7 +773,7 @@ export function BettingHistory({ user }: BettingHistoryProps) {
                 .from('users')
                 .select('id')
                 .eq('username', username)
-                .eq('referrer_id', partner.id)
+                .in('referrer_id', opcodeInfo.partner_ids)
                 .maybeSingle();
 
               if (!userData) continue;
@@ -777,13 +796,15 @@ export function BettingHistory({ user }: BettingHistoryProps) {
               }
             }
 
+            console.log(`✅ [AUTO-SYNC] OPCODE ${opcodeKey} 처리 완료`);
+
           } catch (error) {
-            console.error(`❌ [AUTO-SYNC] 파트너 ${partner.id} 처리 오류:`, error);
+            console.error(`❌ [AUTO-SYNC] OPCODE ${opcodeKey} 처리 오류:`, error);
           }
         }
 
         if (totalSaved > 0) {
-          console.log(`✅ [AUTO-SYNC] 완료: ${totalSaved}건 저장`);
+          console.log(`✅ [AUTO-SYNC] 전체 완료: ${totalSaved}건 저장`);
           // 데이터 재로드
           await loadBettingData();
         }
