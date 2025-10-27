@@ -147,7 +147,7 @@ function AppContent() {
         {!isUserAuthenticated ? (
           <UserLogin onLoginSuccess={(user) => {
             localStorage.setItem('user_session', JSON.stringify(user));
-            window.history.replaceState({}, '', '/user/home');
+            window.history.replaceState({}, '', '/user/casino');
             forceUpdate({});
           }} />
         ) : (

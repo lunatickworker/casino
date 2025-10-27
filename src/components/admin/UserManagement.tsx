@@ -233,44 +233,71 @@ export function UserManagement() {
     try {
       console.log('👤 새 회원 생성 시작:', formData.username);
 
-      const { data, error } = await supabase
-        .rpc('create_user_with_api', {
-          p_username: formData.username,
-          p_nickname: formData.nickname || formData.username,
-          p_password: formData.password,
-          p_bank_name: formData.bank_name,
-          p_bank_account: formData.bank_account,
-          p_memo: formData.memo,
-          p_referrer_id: authState.user?.id
-        });
-
-      if (error) {
-        console.error('❌ 회원 생성 DB 오류:', error);
-        throw error;
+      // 1. 외부 API에 계정 생성 먼저 시도
+      if (!authState.user?.opcode || !authState.user?.secret_key) {
+        toast.error('OPCODE 정보가 없습니다. 상위 파트너에게 문의하세요.');
+        return;
       }
 
-      if (data && Array.isArray(data) && data.length > 0) {
-        const result = data[0];
-        if (result.success) {
-          toast.success(`회원 ${formData.username}이 성공적으로 생성되었습니다.`);
-          setShowCreateDialog(false);
-          setFormData({
-            username: '',
-            nickname: '',
-            password: '',
-            bank_name: '',
-            bank_account: '',
-            memo: ''
-          });
-          await fetchUsers();
-        } else {
-          console.error('❌ 회원 생성 실패:', result.error);
-          toast.error(result.error || '회원 생성에 실패했습니다.');
-        }
-      } else {
-        console.error('❌ 예상치 못한 응답:', data);
-        toast.error('회원 생성 중 오류가 발생했습니다.');
+      console.log('🌐 외부 API 계정 생성 요청:', {
+        opcode: authState.user.opcode,
+        username: formData.username
+      });
+
+      const apiResult = await investApi.createAccount(
+        authState.user.opcode,
+        formData.username,
+        authState.user.secret_key
+      );
+
+      if (apiResult.error) {
+        console.error('❌ 외부 API 계정 생성 실패:', apiResult.error);
+        toast.error(`외부 API 계정 생성 실패: ${apiResult.error}`);
+        return;
       }
+
+      console.log('✅ 외부 API 계정 생성 성공:', apiResult.data);
+
+      // 2. DB에 사용자 생성
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({
+          username: formData.username,
+          nickname: formData.nickname || formData.username,
+          password_hash: formData.password,
+          bank_name: formData.bank_name || null,
+          bank_account: formData.bank_account || null,
+          memo: formData.memo || null,
+          referrer_id: authState.user?.id,
+          status: 'active',
+          balance: 0,
+          points: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('❌ 회원 생성 DB 오류:', insertError);
+        toast.error(`DB 저장 실패: ${insertError.message}`);
+        return;
+      }
+
+      console.log('✅ DB 회원 생성 완료:', newUser);
+      toast.success(`회원 ${formData.username}이 성공적으로 생성되었습니다.`);
+      
+      setShowCreateDialog(false);
+      setFormData({
+        username: '',
+        nickname: '',
+        password: '',
+        bank_name: '',
+        bank_account: '',
+        memo: ''
+      });
+      
+      await fetchUsers();
     } catch (error: any) {
       console.error('❌ 회원 생성 전체 오류:', error);
       toast.error(error.message || '회원 생성에 실패했습니다.');

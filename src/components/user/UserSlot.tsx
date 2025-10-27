@@ -64,7 +64,6 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [games, setGames] = useState<Game[]>([]);
-  const [featuredSlots, setFeaturedSlots] = useState<Game[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -271,15 +270,6 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
 
       setGames(sortedGames);
       
-      // 추천 슬롯 2개 선택 (featured 게임 우선)
-      const featured = sortedGames.filter(g => g.is_featured).slice(0, 2);
-      if (featured.length < 2) {
-        const additional = sortedGames.filter(g => !g.is_featured).slice(0, 2 - featured.length);
-        setFeaturedSlots([...featured, ...additional]);
-      } else {
-        setFeaturedSlots(featured);
-      }
-      
     } catch (error) {
       console.error('슬롯 게임 로드 실패:', error);
       toast.error('슬롯 게임을 불러오는데 실패했습니다.');
@@ -404,51 +394,51 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
       
       <div className="relative z-10 space-y-8 p-4 sm:p-6 lg:p-8">
         {/* VIP 헤더 */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Coins className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
-            <h1 className="text-5xl lg:text-6xl font-bold gold-text neon-glow">
+        <div className="text-center space-y-6">
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <Coins className="w-16 h-16 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
+            <h1 className="text-6xl lg:text-7xl font-bold gold-text neon-glow">
               VIP 슬롯 머신
             </h1>
-            <Coins className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
+            <Coins className="w-16 h-16 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
           </div>
-          <p className="text-2xl text-yellow-100 tracking-wide">
+          <p className="text-3xl text-yellow-100 tracking-wide">
             최고 수익률과 메가 잭팟이 기다리는 프리미엄 슬롯
           </p>
-          <div className="flex items-center justify-center gap-4 text-yellow-300/80">
+          <div className="flex items-center justify-center gap-6 text-yellow-300/80 text-lg">
             <div className="flex items-center gap-2">
-              <DollarSign className="w-4 h-4" />
+              <DollarSign className="w-5 h-5" />
               <span>높은 RTP</span>
             </div>
-            <div className="w-px h-4 bg-yellow-600/50" />
+            <div className="w-px h-6 bg-yellow-600/50" />
             <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4" />
+              <Trophy className="w-5 h-5" />
               <span>메가 잭팟</span>
             </div>
-            <div className="w-px h-4 bg-yellow-600/50" />
+            <div className="w-px h-6 bg-yellow-600/50" />
             <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4" />
+              <Zap className="w-5 h-5" />
               <span>즉시 시작</span>
             </div>
           </div>
         </div>
 
         {/* 검색 및 필터 */}
-        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-yellow-400" />
+        <div className="flex flex-col lg:flex-row gap-5 items-center justify-between">
+          <div className="relative flex-1 max-w-xl">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-yellow-400" />
             <Input
               type="text"
               placeholder="슬롯 검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-black/50 border-yellow-600/30 text-white placeholder:text-yellow-200/50 focus:border-yellow-500"
+              className="pl-12 h-14 text-lg bg-black/50 border-yellow-600/30 text-white placeholder:text-yellow-200/50 focus:border-yellow-500"
             />
           </div>
           
-          <div className="flex gap-3 items-center">
+          <div className="flex gap-4 items-center">
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-32 bg-black/50 border-yellow-600/30 text-white">
+              <SelectTrigger className="w-40 h-14 text-lg bg-black/50 border-yellow-600/30 text-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
@@ -458,29 +448,29 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
               </SelectContent>
             </Select>
             
-            <div className="flex gap-1 bg-black/50 border border-yellow-600/30 rounded-lg p-1">
+            <div className="flex gap-2 bg-black/50 border border-yellow-600/30 rounded-lg p-2">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('grid')}
-                className={viewMode === 'grid' ? 'bg-yellow-600 text-black' : 'text-yellow-300'}
+                className={`w-12 h-12 ${viewMode === 'grid' ? 'bg-yellow-600 text-black' : 'text-yellow-300'}`}
               >
-                <Grid className="w-4 h-4" />
+                <Grid className="w-6 h-6" />
               </Button>
               <Button
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('list')}
-                className={viewMode === 'list' ? 'bg-yellow-600 text-black' : 'text-yellow-300'}
+                className={`w-12 h-12 ${viewMode === 'list' ? 'bg-yellow-600 text-black' : 'text-yellow-300'}`}
               >
-                <List className="w-4 h-4" />
+                <List className="w-6 h-6" />
               </Button>
             </div>
           </div>
         </div>
 
         {/* 카테고리 선택 */}
-        <div className="flex flex-wrap gap-2 justify-center">
+        <div className="flex flex-wrap gap-3 justify-center">
           {slotCategories.map((category) => {
             const Icon = category.icon;
             const isActive = selectedCategory === category.id;
@@ -490,90 +480,25 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
                 variant="ghost"
                 onClick={() => setSelectedCategory(category.id)}
                 className={`
-                  relative px-4 py-2 text-sm font-semibold transition-all duration-300
+                  relative px-6 py-4 text-lg font-bold transition-all duration-300
                   ${isActive 
-                    ? `bg-gradient-to-r ${category.gradient} text-white shadow-lg shadow-yellow-500/50` 
+                    ? `bg-gradient-to-r ${category.gradient} text-white shadow-lg shadow-yellow-500/50 scale-105` 
                     : 'text-yellow-200/80 hover:text-yellow-100 hover:bg-yellow-900/20 border border-transparent hover:border-yellow-600/30'
                   }
                 `}
               >
-                <Icon className="w-4 h-4 mr-2" />
+                <Icon className="w-5 h-5 mr-2" />
                 {category.name}
                 {isActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-300 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-300 to-transparent" />
                 )}
               </Button>
             );
           })}
         </div>
 
-        {/* 추천 슬롯 배너 */}
-        {featuredSlots.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {featuredSlots.map((slot, index) => {
-              const gradients = [
-                'from-purple-600/80 to-pink-600/80',
-                'from-yellow-600/80 to-orange-600/80'
-              ];
-              return (
-                <div
-                  key={slot.game_id}
-                  className="relative group cursor-pointer overflow-hidden rounded-2xl luxury-card border-2 border-yellow-600/40 game-card-hover"
-                  onClick={() => handleGameClick(slot)}
-                >
-                  <div className="aspect-[16/9] relative">
-                    <ImageWithFallback
-                      src={getGameImage(slot)}
-                      alt={slot.game_name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className={`absolute inset-0 bg-gradient-to-t ${gradients[index % 2]} transition-opacity duration-300`} />
-                    
-                    <div className="absolute inset-0 flex flex-col justify-between p-6 text-white">
-                      <div className="flex justify-between items-start">
-                        <Badge className="vip-badge text-white px-3 py-1 w-fit">
-                          <Sparkles className="w-3 h-3 mr-1" />
-                          VIP 추천
-                        </Badge>
-                        {slot.rtp && (
-                          <div className="text-right">
-                            <div className="text-xs text-yellow-200">RTP</div>
-                            <div className="text-lg font-bold neon-glow">{slot.rtp}%</div>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h3 className="text-3xl font-bold neon-glow">{slot.game_name}</h3>
-                        <p className="text-lg text-yellow-100">{slot.provider_name}</p>
-                      </div>
-                      
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
-                        {launchingGameId === slot.game_id ? (
-                          <div className="flex flex-col items-center gap-2 text-white">
-                            <Loader className="w-8 h-8 animate-spin" />
-                            <span className="text-sm font-semibold">시작 중...</span>
-                          </div>
-                        ) : (
-                          <Button 
-                            size="lg" 
-                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold shadow-lg"
-                          >
-                            <Play className="w-5 h-5 mr-2" />
-                            지금 플레이
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* 제공사 선택 */}
-        <div className="luxury-card rounded-2xl p-6 border-2 border-yellow-600/20">
+        <div className="luxury-card rounded-3xl p-8 border-2 border-yellow-600/20">
           <GameProviderSelector
             selectedProvider={selectedProvider}
             onProviderChange={setSelectedProvider}

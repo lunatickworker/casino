@@ -69,6 +69,12 @@ export function PartnerTransactions() {
         .not('to_partner_id', 'is', null)
         .in('transaction_type', ['deposit', 'withdrawal']);
 
+      // 시스템관리자(level 1)가 아닌 경우 자신과 연관된 내역만 필터링
+      if (authState.user.level !== 1) {
+        const currentPartnerId = authState.user.id;
+        query = query.or(`from_partner_id.eq.${currentPartnerId},to_partner_id.eq.${currentPartnerId}`);
+      }
+
       // 날짜 필터 적용
       if (startDate) {
         query = query.gte('created_at', `${startDate}T00:00:00`);

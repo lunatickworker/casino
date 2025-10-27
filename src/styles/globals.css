@@ -464,13 +464,13 @@ html {
 
 /* 테이블 스타일 */
 .table-premium {
-  background: rgba(26, 31, 46, 0.6);
+  background: rgba(10, 14, 26, 0.95);
   border: 1px solid rgba(71, 85, 105, 0.3);
 }
 
 .table-premium thead {
-  background: rgba(51, 65, 85, 0.6);
-  border-bottom: 1px solid rgba(71, 85, 105, 0.4);
+  background: rgba(15, 20, 25, 0.95);
+  border-bottom: 1px solid rgba(71, 85, 105, 0.5);
 }
 
 .table-premium tbody tr {
@@ -479,7 +479,7 @@ html {
 }
 
 .table-premium tbody tr:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(26, 31, 46, 0.8);
 }
 
 /* 배지 스타일 */
@@ -677,6 +677,29 @@ html {
 @keyframes shimmer {
   0%, 100% { opacity: 0.8; }
   50% { opacity: 1; }
+}
+
+/* 배경 슬라이드 애니메이션 */
+.animate-shimmer {
+  animation: shimmerSlide 3s linear infinite;
+}
+
+@keyframes shimmerSlide {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* 지연 애니메이션 */
+.delay-75 {
+  animation-delay: 75ms;
+}
+
+.delay-150 {
+  animation-delay: 150ms;
 }
 
 /* Safe area */

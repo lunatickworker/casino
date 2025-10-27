@@ -1,7 +1,6 @@
 import { memo, lazy, Suspense } from "react";
 
 // 사용자 페이지 컴포넌트 (lazy loading)
-const UserHome = lazy(() => import("../user/UserHome").then(m => ({ default: m.UserHome })));
 const UserCasino = lazy(() => import("../user/UserCasino").then(m => ({ default: m.UserCasino })));
 const UserSlot = lazy(() => import("../user/UserSlot").then(m => ({ default: m.UserSlot })));
 const UserDeposit = lazy(() => import("../user/UserDeposit").then(m => ({ default: m.UserDeposit })));
@@ -42,9 +41,8 @@ export const UserRoutes = memo(({ currentRoute, user, onRouteChange }: UserRoute
         return <UserProfile user={user} onRouteChange={onRouteChange} />;
       case '/user/betting-history':
         return <UserBettingHistory user={user} />;
-      case '/user/home':
       default:
-        return <UserHome user={user} onRouteChange={onRouteChange} />;
+        return <UserCasino user={user} onRouteChange={onRouteChange} />;
     }
   };
 

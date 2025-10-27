@@ -198,6 +198,36 @@ export function MenuManagement({ user }: MenuManagementProps) {
       // 선택된 파트너 정보 설정
       const partner = partners.find(p => p.id === partnerId);
       setSelectedPartner(partner || null);
+
+      if (!partner) {
+        toast.error('선택된 파트너 정보를 찾을 수 없습니다.');
+        return;
+      }
+
+      // ✅ 하위 조직의 경우 상위 파트너가 활성화한 메뉴만 표시
+      let availableMenus = menuPermissions;
+      
+      // 시스템관리자(level 1)가 아닌 하위 파트너를 관리하는 경우
+      if (user.level !== 1 && partner.parent_id) {
+        // 상위 파트너의 활성화된 메뉴만 조회
+        const { data: parentMenus, error: parentError } = await supabase
+          .from('partner_menu_permissions')
+          .select(`
+            menu_permission_id,
+            is_enabled,
+            menu_permission:menu_permissions(*)
+          `)
+          .eq('partner_id', partner.parent_id)
+          .eq('is_enabled', true);
+
+        if (parentError) {
+          console.error('상위 파트너 메뉴 조회 오류:', parentError);
+        } else if (parentMenus && parentMenus.length > 0) {
+          // 상위 파트너가 활성화한 메뉴만 필터링
+          const parentMenuIds = new Set(parentMenus.map(pm => pm.menu_permission_id));
+          availableMenus = menuPermissions.filter(menu => parentMenuIds.has(menu.id));
+        }
+      }
       
       // 기존 파트너별 메뉴 권한 조회
       const { data: existingPermissions, error: permError } = await supabase
@@ -210,25 +240,18 @@ export function MenuManagement({ user }: MenuManagementProps) {
 
       if (permError) throw permError;
 
-      if (!partner) {
-        toast.error('선택된 파트너 정보를 찾을 수 없습니다.');
-        return;
-      }
-
-      // 사용 가능한 메뉴는 현재 로드된 menuPermissions (이미 필터링됨)
-      const availableMenus = menuPermissions;
-
       // 기존 권한이 없는 메뉴들에 대해 기본 권한 생성
       const missingMenus = availableMenus.filter(menu => 
         !existingPermissions?.some(pmp => pmp.menu_permission_id === menu.id)
       );
 
       if (missingMenus.length > 0) {
-        // ✅ 모든 메뉴를 기본 활성화 (레벨 제한 제거)
+        // ✅ 레벨별로 메뉴 기본 활성화 여부 결정
+        // 파트너의 level이 menu의 partner_level 이하면 기본 활성화
         const newPermissions = missingMenus.map(menu => ({
           partner_id: partnerId,
           menu_permission_id: menu.id,
-          is_enabled: true  // 모든 메뉴 기본 활성화
+          is_enabled: partner.level <= menu.partner_level  // 레벨별 기본 활성화
         }));
 
         const { error: insertError } = await supabase
@@ -258,11 +281,16 @@ export function MenuManagement({ user }: MenuManagementProps) {
           : pmp.menu_permission
       }));
 
-      // ✅ 모든 메뉴 표시 (필터링 제거)
-      setPartnerMenuPermissions(formattedPermissions);
+      // ✅ 상위 파트너가 활성화한 메뉴만 표시 (availableMenus 기준으로 필터링)
+      const availableMenuIds = new Set(availableMenus.map(m => m.id));
+      const filteredPermissions = formattedPermissions.filter(pmp => 
+        availableMenuIds.has(pmp.menu_permission_id)
+      );
+
+      setPartnerMenuPermissions(filteredPermissions);
       
       // 모든 그룹 기본적으로 펼치기
-      const groups = new Set(formattedPermissions
+      const groups = new Set(filteredPermissions
         .map(pmp => pmp.menu_permission?.parent_menu || '기본 메뉴')
         .filter(Boolean));
       setExpandedGroups(groups);
@@ -574,7 +602,7 @@ export function MenuManagement({ user }: MenuManagementProps) {
                 <p className="text-xs text-slate-400 mb-3">
                   {menuPermissions.length === 0 
                     ? 'menu_permissions 테이블에 기본 메뉴 데이터가 없습니다.' 
-                    : '해당 파트너에게 할당 가능한 메뉴가 없거나 데이터를 불러올 수 없습니다.'}
+                    : '해당 파트너에게 할당 가능한 메뉴가 없거나 데이터를 불러올 수 ���습니다.'}
                 </p>
                 <div className="space-y-2 mb-4">
                   <div className="text-xs text-slate-500">

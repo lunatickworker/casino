@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { 
-  Bell, 
   User, 
   Menu, 
-  Home, 
   Gamepad2, 
   Coins,
   CreditCard,
@@ -46,7 +44,6 @@ interface UserBalance {
 }
 
 const menuItems = [
-  { path: '/user/home', label: '홈', icon: Home },
   { path: '/user/casino', label: '카지노', icon: Gamepad2 },
   { path: '/user/slot', label: '슬롯', icon: Coins },
   { path: '/user/betting-history', label: '베팅내역', icon: History },
@@ -284,8 +281,8 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
               </div>
             </div>
 
-            {/* Desktop Navigation - VIP 스타일 */}
-            <nav className="hidden lg:flex items-center space-x-1 xl:space-x-2 flex-shrink-0">
+            {/* Desktop Navigation - VIP 스타일 (대폭 개선된 가독성) */}
+            <nav className="hidden lg:flex items-center space-x-3 flex-shrink-0">
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentRoute === item.path;
@@ -295,16 +292,15 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
                     variant="ghost"
                     onClick={() => onRouteChange(item.path)}
                     className={`
-                      relative px-2 xl:px-4 py-2 text-xs xl:text-sm font-semibold transition-all duration-300 whitespace-nowrap
+                      relative px-4 lg:px-6 py-3 lg:py-3.5 transition-all duration-300 whitespace-nowrap
                       ${isActive 
                         ? 'bg-gradient-to-r from-yellow-600 to-red-600 text-white shadow-lg shadow-yellow-500/50 border border-yellow-400/50' 
                         : 'text-yellow-200/80 hover:text-yellow-100 hover:bg-yellow-900/20 border border-transparent hover:border-yellow-600/30'
                       }
                     `}
                   >
-                    <Icon className={`w-3 h-3 xl:w-4 xl:h-4 mr-1 xl:mr-2 ${isActive ? 'drop-shadow-lg' : ''}`} />
-                    <span className="hidden xl:inline">{item.label}</span>
-                    <span className="xl:hidden">{item.label.substring(0, 2)}</span>
+                    <Icon className={`w-5 h-5 lg:w-6 lg:h-6 mr-2.5 ${isActive ? 'drop-shadow-lg' : ''}`} />
+                    <span className="text-base lg:text-lg">{item.label}</span>
                     {isActive && (
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-300 to-transparent" />
                     )}
@@ -437,15 +433,15 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
                               setIsMobileMenuOpen(false);
                             }}
                             className={`
-                              w-full justify-start text-left px-4 py-3 h-auto
+                              w-full justify-start text-left px-4 py-4 h-auto
                               ${isActive 
-                                ? 'bg-blue-600 text-white' 
+                                ? 'bg-gradient-to-r from-yellow-600 to-red-600 text-white' 
                                 : 'text-slate-300 hover:text-white hover:bg-slate-800'
                               }
                             `}
                           >
-                            <Icon className="w-5 h-5 mr-3" />
-                            {item.label}
+                            <Icon className="w-6 h-6 mr-3" />
+                            <span className="text-base">{item.label}</span>
                           </Button>
                         );
                       })}
@@ -469,12 +465,12 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation - VIP 럭셔리 스타일 */}
+      {/* Mobile Bottom Navigation - VIP 럭셔리 스타일 (카지노부터 시작) */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-yellow-600/30 shadow-2xl overflow-x-hidden">
         {/* 상단 골든 라인 */}
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-500 to-transparent" />
         
-        <div className="flex items-center justify-around py-2 px-2 safe-area-bottom">
+        <div className="flex items-center justify-around py-2.5 px-2 safe-area-bottom">
           {menuItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const isActive = currentRoute === item.path;
@@ -485,19 +481,19 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
                 size="sm"
                 onClick={() => onRouteChange(item.path)}
                 className={`
-                  flex flex-col items-center space-y-0.5 px-1 py-2 min-h-12 relative flex-1 max-w-20
+                  flex flex-col items-center space-y-1 px-1.5 py-2.5 min-h-14 relative flex-1 max-w-20
                   ${isActive 
                     ? 'text-yellow-400' 
                     : 'text-yellow-200/70 hover:text-yellow-100'
                   }
                 `}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : ''}`} />
-                <span className={`text-[9px] font-semibold tracking-wide ${isActive ? 'neon-glow' : ''} truncate`}>
+                <Icon className={`w-5 h-5 ${isActive ? 'drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : ''}`} />
+                <span className={`text-[10px] tracking-wide ${isActive ? 'neon-glow' : ''} truncate`}>
                   {item.label}
                 </span>
                 {isActive && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-6 h-0.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent rounded-full" />
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent rounded-full" />
                 )}
               </Button>
             );

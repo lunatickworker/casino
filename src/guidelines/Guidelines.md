@@ -57,6 +57,12 @@ PATCH /api/account/balance
 - 30초 이상 간격으로 호출 권장
 - 최근 2일 이내 업데이트된 회원만 조회됨
 
+**GMS 시스템 사용:**
+- **level 2 user, level 3-7**: 이 API를 사용하여 username 매핑으로 users/partners 테이블 동기화
+- 30초마다 자동 동기화 (`BalanceSyncManager` 컴포넌트)
+- **⚠️ 중요**: username이 있는 데이터만 업데이트, 없는 username은 무시 (0으로 업데이트 안함)
+- DB에 존재하는 username만 업데이트됨
+
 ---
 
 ### 1.4 계정 입금
@@ -150,6 +156,10 @@ GET /api/info
 **Signature:** `md5(opcode + secret_key)`
 
 **용도:** opcode 잔고 조회 / name / users balance
+
+**GMS 시스템 사용:**
+- **level 1 (시스템관리자), level 2 (본사)**: 이 API를 사용하여 보유금 동기화
+- 30초마다 자동 동기화 (`BalanceSyncManager` 컴포넌트)
 
 ---
 

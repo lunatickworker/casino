@@ -92,6 +92,7 @@ export function PartnerManagement() {
   const [currentTab, setCurrentTab] = useState("hierarchy");
   const [dashboardData, setDashboardData] = useState({});
   const [expandedPartners, setExpandedPartners] = useState<Set<string>>(new Set());
+  const [allExpanded, setAllExpanded] = useState(false);
   const [hierarchyWarning, setHierarchyWarning] = useState<string>("");
   const [systemDefaultCommission, setSystemDefaultCommission] = useState({
     rolling: 0.5,
@@ -1667,6 +1668,29 @@ export function PartnerManagement() {
     });
   };
 
+  // 모든 파트너 펼치기/접기
+  const toggleAllPartners = () => {
+    if (allExpanded) {
+      // 모두 접기
+      setExpandedPartners(new Set());
+      setAllExpanded(false);
+    } else {
+      // 모두 펼치기 - 자식이 있는 모든 파트너 ID 추가
+      const allPartnerIds = new Set<string>();
+      const addPartnerIds = (partnerList: Partner[]) => {
+        partnerList.forEach(partner => {
+          if ((partner as any).children && (partner as any).children.length > 0) {
+            allPartnerIds.add(partner.id);
+            addPartnerIds((partner as any).children);
+          }
+        });
+      };
+      addPartnerIds(hierarchyData);
+      setExpandedPartners(allPartnerIds);
+      setAllExpanded(true);
+    }
+  };
+
   // 필터링된 파트너 목록
   const filteredPartners = partners.filter(partner => {
     const matchesSearch = partner.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -2107,13 +2131,31 @@ export function PartnerManagement() {
         </div>
         <div className="flex items-center gap-2">
           <Button 
+            onClick={toggleAllPartners}
+            variant="outline"
+            className="border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400/50"
+          >
+            {allExpanded ? (
+              <>
+                <ChevronDown className="h-4 w-4 mr-2" />
+                접기
+              </>
+            ) : (
+              <>
+                <ChevronRight className="h-4 w-4 mr-2" />
+                펼쳐보기
+              </>
+            )}
+          </Button>
+          <Button 
             onClick={() => setShowHierarchyView(!showHierarchyView)}
+            variant="outline"
             className="border-slate-700 text-slate-300 hover:bg-slate-700/50"
           >
             <Building2 className="h-4 w-4 mr-2" />
             {showHierarchyView ? "목록 보기" : "계층 보기"}
           </Button>
-          <Button className="border-slate-700 text-slate-300 hover:bg-slate-700/50">
+          <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-700/50">
             <Download className="h-4 w-4 mr-2" />
             내보내기
           </Button>
@@ -2249,19 +2291,19 @@ export function PartnerManagement() {
         />
       </div>
 
-      {/* 탭 메뉴 - 현대적인 디자인 */}
+      {/* 탭 메뉴 - 부드럽고 편안한 디자인 */}
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
-        <div className="border-b border-slate-700/50">
-          <TabsList className="bg-transparent h-auto p-0 border-0 gap-8">
+        <div className="bg-slate-800/30 rounded-xl p-1.5 border border-slate-700/40">
+          <TabsList className="bg-transparent h-auto p-0 border-0 gap-2 w-full grid grid-cols-2">
             <TabsTrigger 
               value="hierarchy"
-              className="bg-transparent border-b-2 border-transparent rounded-none data-[state=active]:border-cyan-400 data-[state=active]:bg-transparent data-[state=active]:text-cyan-400 data-[state=active]:shadow-none pb-3 px-0 transition-all"
+              className="bg-transparent text-slate-400 rounded-lg px-6 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500/20 data-[state=active]:to-cyan-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/20 data-[state=active]:border data-[state=active]:border-blue-400/30 transition-all duration-200"
             >
               파트너 계층 관리
             </TabsTrigger>
             <TabsTrigger 
               value="dashboard"
-              className="bg-transparent border-b-2 border-transparent rounded-none data-[state=active]:border-cyan-400 data-[state=active]:bg-transparent data-[state=active]:text-cyan-400 data-[state=active]:shadow-none pb-3 px-0 transition-all"
+              className="bg-transparent text-slate-400 rounded-lg px-6 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20 data-[state=active]:border data-[state=active]:border-purple-400/30 transition-all duration-200"
             >
               파트너 대시보드
             </TabsTrigger>

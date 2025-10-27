@@ -44,179 +44,194 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<OnlineSession | null>(null);
   const [showKickDialog, setShowKickDialog] = useState(false);
+  const [syncingBalance, setSyncingBalance] = useState<string | null>(null);
   const reloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 온라인 세션 로드
-  const loadOnlineSessions = async () => {
+  const loadOnlineSessions = async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
 
-      const { data, error } = await supabase.rpc("get_active_game_sessions", {
-        p_user_id: null,
-        p_admin_partner_id: user.id,
-      });
-
-      if (error) throw error;
-
-      setSessions(data || []);
-    } catch (error: any) {
-      console.error("온라인 세션 로드 오류:", error);
-      toast.error("온라인 현황을 불러올 수 없습니다");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 개별 사용자 보유금 수동 동기화
-  const syncUserBalance = async (session: OnlineSession) => {
-    try {
-      console.log('💰 사용자 보유금 동기화 시작:', session.username);
-
-      // 1. users 테이블에서 referrer_id 조회
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("referrer_id, username")
-        .eq("id", session.user_id)
-        .single();
-
-      if (userError || !userData) {
-        throw new Error(`사용자 정보를 찾을 수 없습니다: ${userError?.message || '알 수 없음'}`);
+      // 자신 이하 모든 파트너 ID 가져오기
+      let childPartnerIds: string[] = [];
+      if (user.level !== 1) {
+        childPartnerIds = await getAllChildPartnerIds(user.id);
       }
 
-      if (!userData.referrer_id) {
-        throw new Error("소속 파트너 정보(referrer_id)가 없습니다");
-      }
+      // game_launch_sessions 테이블에서 온라인 세션 조회
+      let query = supabase
+        .from('game_launch_sessions')
+        .select(`
+          id,
+          user_id,
+          game_id,
+          status,
+          launched_at,
+          last_activity_at,
+          balance_before,
+          users!inner (
+            id,
+            username,
+            nickname,
+            balance,
+            vip_level,
+            referrer_id,
+            partners!users_referrer_id_fkey (
+              id,
+              nickname
+            )
+          ),
+          games (
+            name,
+            game_providers (
+              name
+            )
+          )
+        `)
+        .eq('status', 'online')
+        .order('launched_at', { ascending: false });
 
-      // 2. partners 테이블에서 API 설정 조회
-      const { data: partnerData, error: partnerError } = await supabase
-        .from("partners")
-        .select("opcode, secret_key, api_token")
-        .eq("id", userData.referrer_id)
-        .single();
-
-      if (partnerError || !partnerData) {
-        throw new Error(`파트너 정보를 찾을 수 없습니다: ${partnerError?.message || '알 수 없음'}`);
-      }
-
-      if (!partnerData.opcode || !partnerData.secret_key || !partnerData.api_token) {
-        throw new Error(`파트너의 API 설정이 없습니다`);
-      }
-
-      // 3. Invest API 호출 (GET /api/account/balance)
-      const apiResult = await investApi.getUserBalance(
-        partnerData.opcode,
-        userData.username,
-        partnerData.api_token,
-        partnerData.secret_key
-      );
-
-      if (apiResult.error) {
-        throw new Error(`API 호출 실패: ${apiResult.error}`);
-      }
-
-      // 4. API 응답 직접 파싱
-      let newBalance = 0;
-      const apiData = apiResult.data;
-
-      if (apiData) {
-        if (typeof apiData === 'object' && !apiData.is_text) {
-          if (apiData.RESULT === true && apiData.DATA) {
-            newBalance = parseFloat(apiData.DATA.balance || apiData.DATA.users_balance || 0);
-          } else if (apiData.balance !== undefined) {
-            newBalance = parseFloat(apiData.balance || 0);
-          } else if (apiData.DATA?.balance !== undefined) {
-            newBalance = parseFloat(apiData.DATA.balance || 0);
-          }
-        } else if (apiData.is_text && apiData.text_response) {
-          const balanceMatch = apiData.text_response.match(/balance["'\s:]+(\\d+\\.?\\d*)/i);
-          if (balanceMatch) {
-            newBalance = parseFloat(balanceMatch[1]);
-          }
+      // 시스템관리자(level 1)가 아닌 경우 자신의 하위 사용자만 필터링
+      if (user.level !== 1) {
+        if (childPartnerIds.length === 0) {
+          // 하위 파트너가 없으면 자신의 직속 사용자만
+          query = query.eq('users.referrer_id', user.id);
+        } else {
+          // 자신과 하위 파트너의 사용자 포함
+          const allPartnerIds = [user.id, ...childPartnerIds];
+          query = query.in('users.referrer_id', allPartnerIds);
         }
       }
 
-      // 5. DB 업데이트 (Realtime 이벤트 발생)
-      const { error: updateError } = await supabase
-        .from("users")
-        .update({
-          balance: newBalance,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", session.user_id);
+      const { data, error } = await query;
 
-      if (updateError) {
-        throw new Error(`DB 업데이트 실패: ${updateError.message}`);
-      }
+      if (error) throw error;
 
-      console.log('✅ 보유금 동기화 완료:', {
-        username: userData.username,
-        oldBalance: session.current_balance,
-        newBalance: newBalance,
-        diff: newBalance - session.current_balance
-      });
+      // 데이터 포맷팅
+      const formattedSessions: OnlineSession[] = (data || []).map((session: any) => ({
+        session_id: session.id,
+        user_id: session.users.id,
+        username: session.users.username,
+        nickname: session.users.nickname || session.users.username,
+        partner_nickname: session.users.partners?.nickname || '-',
+        game_name: session.games?.name || 'Unknown Game',
+        provider_name: session.games?.game_providers?.name || 'Unknown',
+        balance_before: session.balance_before || 0,
+        current_balance: session.users.balance || 0,
+        vip_level: session.users.vip_level || 0,
+        device_type: 'Web', // 기본값
+        ip_address: '-', // user_sessions에서 가져와야 함
+        location: '-',
+        launched_at: session.launched_at,
+        last_activity: session.last_activity_at || session.launched_at,
+      }));
 
-      // 화면 업데이트: sessions 상태 직접 갱신 (API 값으로 강제)
-      setSessions(prevSessions => {
-        const updated = prevSessions.map(s => 
-          s.session_id === session.session_id
-            ? { ...s, current_balance: newBalance }
-            : s
-        );
-        console.log('💾 로컬 상태 업데이트 완료 - 새 보유금:', newBalance);
-        return updated;
-      });
+      setSessions(formattedSessions);
 
-      toast.success(`${session.username} 보유금 동기화 완료: ₩${newBalance.toLocaleString()}`);
-      
     } catch (error: any) {
-      console.error("❌ 보유금 동기화 오류:", error);
-      toast.error(`보유금 동기화 실패: ${error.message || '알 수 없는 오류'}`);
+      console.error("온라인 세션 로드 오류:", error);
+      if (isInitial) toast.error("온라인 현황을 불러올 수 없습니다");
+    } finally {
+      if (isInitial) setLoading(false);
     }
   };
 
-  // 사용자 강제 종료
-  const kickUser = async () => {
+  // 모든 하위 파트너 ID를 재귀적으로 가져오기
+  const getAllChildPartnerIds = async (partnerId: string): Promise<string[]> => {
+    const partnerIds: string[] = [];
+    const queue: string[] = [partnerId];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      
+      const { data, error } = await supabase
+        .from('partners')
+        .select('id')
+        .eq('parent_id', currentId);
+
+      if (!error && data) {
+        for (const partner of data) {
+          partnerIds.push(partner.id);
+          queue.push(partner.id);
+        }
+      }
+    }
+
+    return partnerIds;
+  };
+
+  // 보유금 동기화
+  const handleSyncBalance = async (session: OnlineSession) => {
+    try {
+      setSyncingBalance(session.user_id);
+
+      // API 호출하여 보유금 조회
+      const apiConfig = await investApi.getApiConfig(user.id);
+      const balanceResult = await investApi.getUserBalance(
+        apiConfig.opcode,
+        session.username,
+        apiConfig.token,
+        apiConfig.secret_key
+      );
+
+      if (balanceResult && balanceResult.balance !== undefined) {
+        // 보유금 업데이트
+        const { error } = await supabase
+          .from('users')
+          .update({ balance: balanceResult.balance })
+          .eq('id', session.user_id);
+
+        if (error) throw error;
+
+        toast.success(`${session.nickname}의 보유금이 동기화되었습니다`);
+        loadOnlineSessions();
+      } else {
+        toast.error("보유금 조회에 실패했습니다");
+      }
+    } catch (error: any) {
+      console.error("보유금 동기화 오류:", error);
+      toast.error("보유금 동기화 중 오류가 발생했습니다");
+    } finally {
+      setSyncingBalance(null);
+    }
+  };
+
+  // 세션 강제 종료
+  const handleKickSession = async () => {
     if (!selectedSession) return;
 
     try {
       const { error } = await supabase
-        .from("game_launch_sessions")
+        .from('game_launch_sessions')
         .update({
-          status: "ended",
+          status: 'ended',
           ended_at: new Date().toISOString()
         })
-        .eq("id", selectedSession.session_id);
+        .eq('id', selectedSession.session_id);
 
-      if (error) {
-        console.error("❌ game_launch_sessions 종료 오류:", error);
-        throw error;
-      }
+      if (error) throw error;
 
-      toast.success(`${selectedSession.username} 사용자를 강제 종료했습니다`);
+      toast.success(`${selectedSession.nickname}의 세션이 종료되었습니다`);
       setShowKickDialog(false);
       setSelectedSession(null);
-      await loadOnlineSessions();
+      loadOnlineSessions();
     } catch (error: any) {
-      console.error("강제 종료 오류:", error);
-      toast.error(`강제 종료 실패: ${error.message || '알 수 없는 오류'}`);
+      console.error("세션 종료 오류:", error);
+      toast.error("세션 종료 중 오류가 발생했습니다");
     }
   };
 
-  // 초기 로드 및 주기적 새로고침
+  // 초기 로드
   useEffect(() => {
-    loadOnlineSessions();
-
-    // 30초마다 화면 새로고침 (Realtime이 실패할 경우 대비)
-    const interval = setInterval(loadOnlineSessions, 30000);
-    return () => clearInterval(interval);
+    loadOnlineSessions(true);
   }, [user.id]);
 
-  // Realtime 구독: game_launch_sessions, users, game_records 변경 감지
+  // Realtime 구독
   useEffect(() => {
-    console.log('🔔 Realtime 구독 시작: game_launch_sessions, users, game_records');
+    console.log('🔔 Realtime 구독 시작: game_launch_sessions');
 
     const channel = supabase
-      .channel('online-sessions-realtime')
+      .channel('online-users-realtime')
       .on(
         'postgres_changes',
         {
@@ -227,59 +242,6 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
         (payload) => {
           console.log('🔔 game_launch_sessions 변경 감지:', payload);
           
-          // Debounce: 500ms 후에 재로드
-          if (reloadTimeoutRef.current) {
-            clearTimeout(reloadTimeoutRef.current);
-          }
-          reloadTimeoutRef.current = setTimeout(() => {
-            loadOnlineSessions();
-          }, 500);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'users'
-        },
-        (payload) => {
-          console.log('🔔 users 변경 감지:', payload);
-          
-          // users 테이블 업데이트 시 해당 사용자의 balance를 직접 업데이트
-          const updatedUser = payload.new as any;
-          if (updatedUser && updatedUser.id && updatedUser.balance !== undefined) {
-            console.log(`💰 사용자 ${updatedUser.username} 보유금 Realtime 업데이트: ${updatedUser.balance}`);
-            
-            setSessions(prevSessions => 
-              prevSessions.map(s => 
-                s.user_id === updatedUser.id 
-                  ? { ...s, current_balance: updatedUser.balance }
-                  : s
-              )
-            );
-          }
-          
-          // 안전장치: 1초 후에 전체 재로드 (다른 변경사항 반영)
-          if (reloadTimeoutRef.current) {
-            clearTimeout(reloadTimeoutRef.current);
-          }
-          reloadTimeoutRef.current = setTimeout(() => {
-            loadOnlineSessions();
-          }, 1000);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'game_records'
-        },
-        (payload) => {
-          console.log('🔔 game_records INSERT 감지:', payload);
-          
-          // Debounce: 500ms 후에 재로드
           if (reloadTimeoutRef.current) {
             clearTimeout(reloadTimeoutRef.current);
           }
@@ -291,15 +253,34 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
       .subscribe();
 
     return () => {
-      console.log('🔕 Realtime 구독 해제');
       supabase.removeChannel(channel);
-      
-      // Timeout 정리
       if (reloadTimeoutRef.current) {
         clearTimeout(reloadTimeoutRef.current);
       }
     };
   }, [user.id]);
+
+  // 세션 시간 계산
+  const getSessionTime = (launchedAt: string) => {
+    const diffMinutes = Math.floor((Date.now() - new Date(launchedAt).getTime()) / 1000 / 60);
+    
+    if (diffMinutes < 60) {
+      return `${diffMinutes}분`;
+    }
+    
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    return `${hours}시간 ${minutes}분`;
+  };
+
+  // 총 게임 보유금
+  const totalGameBalance = sessions.reduce((sum, s) => sum + s.current_balance, 0);
+
+  // 손익 계산
+  const totalBalanceChange = sessions.reduce(
+    (sum, s) => sum + (s.current_balance - s.balance_before),
+    0
+  );
 
   const columns = [
     {
@@ -313,7 +294,7 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
             </Badge>
           </div>
           <span className="text-xs text-muted-foreground">
-            {session.partner_nickname}
+            소속: {session.partner_nickname}
           </span>
         </div>
       ),
@@ -322,97 +303,83 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
       header: "게임",
       cell: (session: OnlineSession) => (
         <div className="flex flex-col gap-1">
-          <span>{session.game_name || "알 수 없음"}</span>
+          <span className="text-sm">{session.game_name}</span>
           <span className="text-xs text-muted-foreground">
-            {session.provider_name || ""}
+            {session.provider_name}
           </span>
         </div>
       ),
     },
     {
-      header: "시작 보유금",
+      header: "게임 시작금",
       cell: (session: OnlineSession) => (
         <span>₩{session.balance_before.toLocaleString()}</span>
       ),
     },
     {
       header: "현재 보유금",
-      cell: (session: OnlineSession) => (
-        <div className="flex items-center gap-2">
-          <span className={session.current_balance > session.balance_before ? "text-green-500" : session.current_balance < session.balance_before ? "text-red-500" : ""}>
-            ₩{session.current_balance.toLocaleString()}
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => syncUserBalance(session)}
-          >
-            <RefreshCw className="w-3 h-3" />
-          </Button>
-        </div>
-      ),
-    },
-    {
-      header: "VIP",
-      cell: (session: OnlineSession) => (
-        <Badge variant="secondary">LV.{session.vip_level}</Badge>
-      ),
+      cell: (session: OnlineSession) => {
+        const profit = session.current_balance - session.balance_before;
+        return (
+          <div className="flex flex-col gap-1">
+            <span>₩{session.current_balance.toLocaleString()}</span>
+            <span className={`text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {profit >= 0 ? '+' : ''}{profit.toLocaleString()}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: "접속 정보",
       cell: (session: OnlineSession) => (
         <div className="flex flex-col gap-1 text-xs">
           <div className="flex items-center gap-1">
-            {session.device_type === "mobile" ? (
-              <Smartphone className="w-3 h-3" />
-            ) : (
-              <Monitor className="w-3 h-3" />
-            )}
-            <span>{session.device_type === "mobile" ? "모바일" : "PC"}</span>
+            <MapPin className="h-3 w-3" />
+            <span>{session.location}</span>
           </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <MapPin className="w-3 h-3" />
+          <div className="flex items-center gap-1">
+            <Smartphone className="h-3 w-3" />
             <span>{session.ip_address}</span>
           </div>
         </div>
       ),
     },
     {
-      header: "시작 시간",
+      header: "세션 시간",
       cell: (session: OnlineSession) => (
-        <div className="flex flex-col gap-1 text-xs">
-          <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            <span>{new Date(session.launched_at).toLocaleString()}</span>
-          </div>
-          <span className="text-muted-foreground">
-            최종: {new Date(session.last_activity).toLocaleTimeString()}
-          </span>
+        <div className="flex items-center gap-1 text-xs">
+          <Clock className="h-3 w-3" />
+          <span>{getSessionTime(session.launched_at)}</span>
         </div>
       ),
     },
     {
       header: "관리",
       cell: (session: OnlineSession) => (
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => {
-            setSelectedSession(session);
-            setShowKickDialog(true);
-          }}
-        >
-          <Power className="w-3 h-3 mr-1" />
-          강제종료
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleSyncBalance(session)}
+            disabled={syncingBalance === session.user_id}
+          >
+            <RefreshCw className={`h-3 w-3 ${syncingBalance === session.user_id ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              setSelectedSession(session);
+              setShowKickDialog(true);
+            }}
+          >
+            <Power className="h-3 w-3" />
+          </Button>
+        </div>
       ),
     },
   ];
-
-  const totalBalanceChange = sessions.reduce(
-    (sum, s) => sum + (s.current_balance - s.balance_before),
-    0
-  );
 
   return (
     <div className="space-y-6">
@@ -420,39 +387,46 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
         <div>
           <h2 className="text-2xl">온라인 현황</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            실시간 게임 중인 사용자 현황 (UserLayout에서 자동 동기화)
+            실시간 게임 중인 사용자 현황
           </p>
         </div>
+        <Button onClick={() => loadOnlineSessions(true)} variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          새로고침
+        </Button>
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          title="온라인 서버"
-          value={sessions.length.toLocaleString()}
-          subtitle="실시간 게임 세션"
+          title="온라인 사용자"
+          value={`${sessions.length}명`}
+          subtitle="현재 게임 중"
           icon={Wifi}
           color="purple"
         />
         <MetricCard
           title="총 게임 보유금"
-          value={`₩${sessions.reduce((sum, s) => sum + s.current_balance, 0).toLocaleString()}`}
-          subtitle="전체 사용자 보유금"
+          value={`₩${totalGameBalance.toLocaleString()}`}
+          subtitle="전체 게임 중 보유금"
           icon={CreditCard}
           color="pink"
         />
         <MetricCard
-          title="시작 대비 변동"
-          value={`₩${totalBalanceChange.toLocaleString()}`}
-          subtitle={totalBalanceChange > 0 ? "↑ 증가" : totalBalanceChange < 0 ? "↓ 감소" : "변동 없음"}
+          title="총 손익"
+          value={`${totalBalanceChange >= 0 ? '+' : ''}₩${totalBalanceChange.toLocaleString()}`}
+          subtitle="게임 시작 대비"
           icon={CreditCard}
-          color={totalBalanceChange > 0 ? "green" : totalBalanceChange < 0 ? "red" : "cyan"}
+          color={totalBalanceChange >= 0 ? "green" : "red"}
         />
         <MetricCard
-          title="경고 보유금"
-          value={sessions.length > 0 ? `₩${Math.round(sessions.reduce((sum, s) => sum + s.current_balance, 0) / sessions.length).toLocaleString()}` : "₩0"}
-          subtitle="평균 사용자 보유금"
-          icon={CreditCard}
-          color="amber"
+          title="평균 세션"
+          value={sessions.length > 0 
+            ? `${Math.floor(sessions.reduce((sum, s) => sum + (Date.now() - new Date(s.launched_at).getTime()), 0) / sessions.length / 1000 / 60)}분`
+            : '0분'
+          }
+          subtitle="평균 게임 시간"
+          icon={Clock}
+          color="cyan"
         />
       </div>
 
@@ -468,33 +442,25 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
           data={sessions}
           columns={columns}
           emptyMessage="현재 게임 중인 사용자가 없습니다"
+          rowKey="session_id"
         />
       )}
 
+      {/* 강제 종료 확인 다이얼로그 */}
       <Dialog open={showKickDialog} onOpenChange={setShowKickDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>사용자 강제 종료</DialogTitle>
+            <DialogTitle>세션 강제 종료</DialogTitle>
             <DialogDescription>
-              {selectedSession?.username} 사용자를 강제로 로그아웃시키겠습니까?
-              <br />
-              <span className="text-xs text-muted-foreground mt-2 block">
-                현재 게임: {selectedSession?.game_name}
-              </span>
+              {selectedSession?.nickname}님의 게임 세션을 강제로 종료하시겠습니까?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowKickDialog(false);
-                setSelectedSession(null);
-              }}
-            >
+            <Button variant="outline" onClick={() => setShowKickDialog(false)}>
               취소
             </Button>
-            <Button variant="destructive" onClick={kickUser}>
-              강제 종료
+            <Button variant="destructive" onClick={handleKickSession}>
+              종료
             </Button>
           </DialogFooter>
         </DialogContent>

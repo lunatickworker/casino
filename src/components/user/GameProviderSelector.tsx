@@ -100,11 +100,11 @@ export function GameProviderSelector({
   const getProviderIcon = (gameType: string) => {
     switch (gameType) {
       case 'slot':
-        return <Coins className="w-4 h-4" />;
+        return <Coins className="w-10 h-10 text-yellow-50 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />;
       case 'casino':
-        return <Gamepad2 className="w-4 h-4" />;
+        return <Gamepad2 className="w-10 h-10 text-yellow-50 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />;
       default:
-        return <Gamepad2 className="w-4 h-4" />;
+        return <Gamepad2 className="w-10 h-10 text-yellow-50 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />;
     }
   };
 
@@ -119,79 +119,156 @@ export function GameProviderSelector({
     }
   };
 
+  // 각 제공사에 배경 이미지 할당 (ID 기반)
+  const getProviderBackgroundImage = (providerId: number): string => {
+    // 카지노/슬롯 관련 이미지 풀
+    const casinoImages = [
+      'https://images.unsplash.com/photo-1596838132731-3301c3fd4317?w=400&h=300&fit=crop', // 카지노 칩
+      'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=300&fit=crop', // 룰렛
+      'https://images.unsplash.com/photo-1518331647614-7a1f04cd34cf?w=400&h=300&fit=crop', // 포커 카드
+      'https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400&h=300&fit=crop', // 다이스
+      'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400&h=300&fit=crop', // 카지노 테이블
+      'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&h=300&fit=crop', // 네온 불빛
+      'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=300&fit=crop', // 추상 골드
+      'https://images.unsplash.com/photo-1470790376778-a9fbc86d70e2?w=400&h=300&fit=crop', // 골드 텍스처
+      'https://images.unsplash.com/photo-1566888596782-c7f41cc184c5?w=400&h=300&fit=crop', // 네온 조명
+      'https://images.unsplash.com/photo-1604537529428-15bcbeecfe4d?w=400&h=300&fit=crop', // 슬롯 머신
+    ];
+
+    // ID를 기반으로 이미지 선택 (일관성 유지)
+    return casinoImages[providerId % casinoImages.length];
+  };
+
   return (
-    <div className="space-y-6">
-      {/* VIP 헤더 */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg">
-          {getProviderIcon(gameType)}
+    <div className="space-y-8">
+      {/* 프리미엄 VIP 헤더 - 화려한 배너 스타일 */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-yellow-900/40 via-amber-800/40 to-yellow-900/40 border-2 border-yellow-500/30 p-8">
+        {/* 배경 애니메이션 효과 */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-400/10 to-transparent animate-shimmer" 
+             style={{ backgroundSize: '200% 100%' }} />
+        
+        {/* 장식 효과 - 왼쪽 */}
+        <div className="absolute left-0 top-0 w-64 h-64 bg-yellow-500/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+        
+        {/* 장식 효과 - 오른쪽 */}
+        <div className="absolute right-0 bottom-0 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+        
+        {/* 메인 컨텐츠 */}
+        <div className="relative flex items-center justify-between">
+          {/* 왼쪽: 아이콘과 타이틀 */}
+          <div className="flex items-center gap-5">
+            {/* 빛나는 아이콘 */}
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl blur-xl opacity-70 animate-pulse" />
+              <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-yellow-500 via-yellow-400 to-amber-600 flex items-center justify-center shadow-2xl shadow-yellow-500/50 border-2 border-yellow-300/50">
+                {getProviderIcon(gameType)}
+              </div>
+            </div>
+            
+            {/* 타이틀과 설명 */}
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h3 className="text-4xl font-bold gold-text neon-glow">
+                  {gameType === 'slot' ? 'VIP 슬롯' : 'VIP 카지노'} 제공사
+                </h3>
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                  <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse delay-75" />
+                  <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse delay-150" />
+                </div>
+              </div>
+              <p className="text-yellow-100 text-xl tracking-wide flex items-center gap-2">
+                <span className="inline-block w-1 h-6 bg-gradient-to-b from-yellow-400 to-transparent" />
+                프리미엄 게임 파트너와 함께하세요
+              </p>
+            </div>
+          </div>
+          
+          {/* 오른쪽: 파트너 카운트 배지 */}
+          <div className="flex flex-col items-center gap-2">
+            <Badge className="vip-badge text-white px-6 py-3 text-lg shadow-lg shadow-yellow-500/50">
+              {displayProviders.length}개 파트너
+            </Badge>
+            <div className="flex items-center gap-1 text-yellow-300/70 text-sm">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span>모두 이용가능</span>
+            </div>
+          </div>
         </div>
-        <div className="flex-1">
-          <h3 className="text-xl font-bold gold-text neon-glow">
-            {gameType === 'slot' ? 'VIP 슬롯' : 'VIP 카지노'} 제공사
-          </h3>
-          <p className="text-yellow-300/70 text-sm">
-            프리미엄 게임 파트너와 함께하세요
-          </p>
-        </div>
-        <Badge className="vip-badge text-white px-3 py-1">
-          {displayProviders.length}개 파트너
-        </Badge>
       </div>
 
-      {/* VIP 제공사 선택 */}
-      <ScrollArea className="w-full">
-        <div className="flex gap-3 pb-4">
-          {/* 전체 선택 버튼 */}
-          <Button
-            variant="ghost"
-            onClick={() => onProviderChange("all")}
-            className={`
-              flex-shrink-0 gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300
-              ${selectedProvider === "all" 
-                ? 'bg-gradient-to-r from-yellow-600 to-amber-600 text-black shadow-lg shadow-yellow-500/50' 
-                : 'text-yellow-200/80 hover:text-yellow-100 hover:bg-yellow-900/20 border border-yellow-600/30'
-              }
-            `}
-          >
-            {selectedProvider === "all" && <CheckCircle className="w-4 h-4" />}
-            전체 게임
-          </Button>
+      {/* VIP 제공사 선택 - 그리드 형태 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {/* 전체 선택 버튼 */}
+        <Button
+          variant="ghost"
+          onClick={() => onProviderChange("all")}
+          className={`
+            gap-3 px-6 py-10 rounded-2xl transition-all duration-300 h-auto flex-col relative overflow-hidden
+            ${selectedProvider === "all" 
+              ? 'bg-gradient-to-r from-yellow-600 to-amber-600 text-white shadow-xl shadow-yellow-500/60 scale-105 border-3 border-yellow-400' 
+              : 'bg-gradient-to-br from-yellow-900/40 to-amber-900/40 text-yellow-100 hover:from-yellow-800/50 hover:to-amber-800/50 border-2 border-yellow-600/50 hover:border-yellow-400/80'
+            }
+          `}
+        >
+          {selectedProvider === "all" && <CheckCircle className="w-8 h-8 drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
+          <span className="text-2xl font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">전체 게임</span>
+        </Button>
 
-          {/* 개별 제공사 버튼들 */}
-          {displayProviders.map((provider) => {
-            const isSelected = selectedProvider === provider.id.toString();
-            return (
-              <Button
-                key={provider.id}
-                variant="ghost"
-                onClick={() => onProviderChange(provider.id.toString())}
-                className={`
-                  flex-shrink-0 gap-2 min-w-32 px-4 py-3 rounded-xl font-semibold transition-all duration-300
-                  ${isSelected 
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/50' 
-                    : 'text-yellow-200/80 hover:text-yellow-100 hover:bg-yellow-900/20 border border-yellow-600/30'
-                  }
-                `}
-              >
-                {isSelected && <CheckCircle className="w-4 h-4" />}
-                <span className="truncate">{provider.name}</span>
-              </Button>
-            );
-          })}
-        </div>
-      </ScrollArea>
+        {/* 개별 제공사 버튼들 */}
+        {displayProviders.map((provider) => {
+          const isSelected = selectedProvider === provider.id.toString();
+          const backgroundImage = getProviderBackgroundImage(provider.id);
+          
+          return (
+            <Button
+              key={provider.id}
+              variant="ghost"
+              onClick={() => onProviderChange(provider.id.toString())}
+              className={`
+                gap-3 px-6 py-10 rounded-2xl transition-all duration-300 h-auto flex-col relative overflow-hidden
+                ${isSelected 
+                  ? 'shadow-xl shadow-yellow-500/60 scale-105 border-3 border-yellow-400' 
+                  : 'border-2 border-yellow-600/50 hover:border-yellow-400/80 hover:scale-102'
+                }
+              `}
+              style={{
+                backgroundImage: `url(${backgroundImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              {/* 선명한 오버레이 */}
+              <div className={`
+                absolute inset-0 transition-all duration-300
+                ${isSelected 
+                  ? 'bg-gradient-to-br from-yellow-600/75 to-amber-600/75' 
+                  : 'bg-black/45 hover:bg-black/30'
+                }
+              `} />
+              
+              {/* 컨텐츠 */}
+              <div className="relative z-10 flex flex-col items-center gap-3">
+                {isSelected && <CheckCircle className="w-8 h-8 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
+                <span className="text-center leading-tight text-white font-black text-2xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]" style={{ textShadow: '0 0 20px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,1)' }}>
+                  {provider.name}
+                </span>
+              </div>
+            </Button>
+          );
+        })}
+      </div>
 
       {/* 선택된 제공사 정보 */}
       {selectedProvider !== "all" && (
-        <div className="text-sm text-yellow-300/80 bg-black/30 rounded-lg p-3 border border-yellow-600/20">
+        <div className="text-base text-yellow-300/80 bg-black/30 rounded-xl p-5 border border-yellow-600/20">
           {(() => {
             const selected = displayProviders.find(p => p.id.toString() === selectedProvider);
             return selected ? (
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-                <span>
-                  <span className="font-semibold text-yellow-200">{selected.name}</span> 제공사의 VIP {getGameTypeLabel(gameType)} 게임
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
+                <span className="text-lg">
+                  <span className="font-bold text-yellow-200">{selected.name}</span> 제공사의 VIP {getGameTypeLabel(gameType)} 게임
                 </span>
               </div>
             ) : null;
@@ -200,14 +277,14 @@ export function GameProviderSelector({
       )}
 
       {displayProviders.length === 0 && (
-        <div className="text-center py-12 luxury-card rounded-xl border-2 border-yellow-600/20">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-full flex items-center justify-center mb-4">
+        <div className="text-center py-20 luxury-card rounded-2xl border-2 border-yellow-600/20">
+          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-full flex items-center justify-center mb-6">
             {getProviderIcon(gameType)}
           </div>
-          <h3 className="text-lg font-bold gold-text mb-2">
+          <h3 className="text-2xl font-bold gold-text mb-3">
             제공사를 찾을 수 없습니다
           </h3>
-          <p className="text-yellow-200/80">
+          <p className="text-yellow-200/80 text-lg">
             사용 가능한 VIP {getGameTypeLabel(gameType)} 제공사가 없습니다.
           </p>
         </div>

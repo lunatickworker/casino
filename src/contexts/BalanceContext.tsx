@@ -73,7 +73,7 @@ export function BalanceProvider({ user, children }: BalanceProviderProps) {
   }, [user]);
 
   // =====================================================
-  // 2. API 동기화 (opcode가 있는 경우만, 수동 호출)
+  // 2. API 동기화 (권한 레벨에 따라 다른 API 호출)
   // =====================================================
   
   const syncBalanceFromAPI = useCallback(async () => {
@@ -121,20 +121,38 @@ export function BalanceProvider({ user, children }: BalanceProviderProps) {
 
     isSyncingRef.current = true;
     setLoading(true);
-    console.log('📡 [Balance] API /info 호출 시작:', {
-      partner_id: user.id,
-      opcode: opcode
-    });
 
     try {
+      // ✅ 권한 레벨에 따라 다른 API 호출
+      // level 1 (시스템관리자), level 2 (본사) -> GET /api/info
+      // level 2 user, level 3-7 -> PATCH /api/account/balance
+      const shouldUseInfoAPI = user.level === 1 || user.level === 2;
+      const apiEndpoint = shouldUseInfoAPI ? '/api/info' : '/api/account/balance';
+      
+      console.log(`📡 [Balance] API ${apiEndpoint} 호출 시작:`, {
+        partner_id: user.id,
+        level: user.level,
+        opcode: opcode
+      });
+
       const apiStartTime = Date.now();
-      const apiResult = await getInfo(opcode, secretKey);
+      let apiResult;
+
+      if (shouldUseInfoAPI) {
+        // GET /api/info 호출 (시스템관리자/본사)
+        apiResult = await getInfo(opcode, secretKey);
+      } else {
+        // PATCH /api/account/balance 호출 (나머지)
+        const { getAllAccountBalances } = await import('../lib/investApi');
+        apiResult = await getAllAccountBalances(opcode, secretKey);
+      }
+
       const apiDuration = Date.now() - apiStartTime;
 
       // API 호출 로그 기록
       await supabase.from('api_sync_logs').insert({
         opcode: opcode,
-        api_endpoint: '/api/info',
+        api_endpoint: apiEndpoint,
         sync_type: 'manual_balance_sync',
         status: apiResult.error ? 'failed' : 'success',
         request_data: {
@@ -160,20 +178,60 @@ export function BalanceProvider({ user, children }: BalanceProviderProps) {
 
       console.log('📊 [Balance] API 응답:', JSON.stringify(apiData, null, 2));
 
-      if (apiData) {
-        // JSON 응답: { RESULT: true, DATA: { balance: 105000, ... } }
-        if (typeof apiData === 'object' && !apiData.is_text) {
-          if (apiData.RESULT === true && apiData.DATA) {
-            newBalance = parseFloat(apiData.DATA.balance || 0);
-          } else if (apiData.balance !== undefined) {
-            newBalance = parseFloat(apiData.balance || 0);
+      if (shouldUseInfoAPI) {
+        // GET /api/info 응답 파싱
+        if (apiData) {
+          if (typeof apiData === 'object' && !apiData.is_text) {
+            if (apiData.RESULT === true && apiData.DATA) {
+              newBalance = parseFloat(apiData.DATA.balance || 0);
+            } else if (apiData.balance !== undefined) {
+              newBalance = parseFloat(apiData.balance || 0);
+            }
+          } else if (apiData.is_text && apiData.text_response) {
+            const balanceMatch = apiData.text_response.match(/balance["'\s:]+(\\d+\\.?\\d*)/i);
+            if (balanceMatch) {
+              newBalance = parseFloat(balanceMatch[1]);
+            }
           }
         }
-        // 텍스트 응답 파싱
-        else if (apiData.is_text && apiData.text_response) {
-          const balanceMatch = apiData.text_response.match(/balance["'\s:]+(\\d+\\.?\\d*)/i);
-          if (balanceMatch) {
-            newBalance = parseFloat(balanceMatch[1]);
+      } else {
+        // PATCH /api/account/balance 응답 파싱
+        // DATA 배열에서 자신의 username 찾기
+        if (apiData) {
+          if (typeof apiData === 'object' && !apiData.is_text) {
+            if (apiData.RESULT === true && Array.isArray(apiData.DATA)) {
+              // 배열에서 자신의 username 찾기
+              const myData = apiData.DATA.find((item: any) => item.username === user.nickname);
+              
+              if (myData) {
+                newBalance = parseFloat(myData.balance || 0);
+                console.log('✅ [Balance] API 응답에서 username 찾음:', {
+                  username: user.nickname,
+                  balance: newBalance
+                });
+              } else {
+                console.log('⚠️ [Balance] API 응답에 username 없음 - DB에서 현재 보유금 조회:', {
+                  username: user.nickname,
+                  total_records: apiData.DATA.length
+                });
+                // username이 없으면 DB에서 현재 보유금 조회하여 화면 업데이트
+                const { data: dbData } = await supabase
+                  .from('partners')
+                  .select('balance')
+                  .eq('id', user.id)
+                  .single();
+                
+                if (dbData) {
+                  const currentBalance = dbData.balance || 0;
+                  setBalance(currentBalance);
+                  setLastSyncTime(new Date());
+                  console.log('✅ [Balance] DB에서 현재 보유금 조회 완료:', currentBalance);
+                }
+                return;
+              }
+            } else if (apiData.balance !== undefined) {
+              newBalance = parseFloat(apiData.balance || 0);
+            }
           }
         }
       }
@@ -206,7 +264,7 @@ export function BalanceProvider({ user, children }: BalanceProviderProps) {
             amount: newBalance - oldBalance,
             transaction_type: 'admin_adjustment',
             processed_by: user.id,
-            memo: 'API /info 동기화'
+            memo: `API ${apiEndpoint} 동기화`
           });
         }
 
@@ -226,7 +284,7 @@ export function BalanceProvider({ user, children }: BalanceProviderProps) {
       isSyncingRef.current = false;
       setLoading(false);
     }
-  }, [user]);
+  }, [user, balance]);
 
   // =====================================================
   // 3. 통합 동기화 함수 (외부에서 호출)

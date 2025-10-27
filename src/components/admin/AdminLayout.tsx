@@ -2,12 +2,12 @@ import { useState } from "react";
 import { SidebarProvider } from "../ui/sidebar";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
+import { BettingHistorySync } from "./BettingHistorySync";
+import { BalanceSyncManager } from "./BalanceSyncManager";
 import { useAuth } from "../../contexts/AuthContext";
 import { useWebSocketContext } from "../../contexts/WebSocketContext";
 import { Partner } from "../../types";
 import { cn } from "../../lib/utils";
-import { Button } from "../ui/button";
-import { ExternalLink } from "lucide-react";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -35,6 +35,12 @@ export function AdminLayout({ children, currentRoute, onNavigate }: AdminLayoutP
 
   return (
     <SidebarProvider>
+      {/* 백그라운드 베팅 기록 동기화 */}
+      <BettingHistorySync user={user} />
+      
+      {/* 백그라운드 보유금 동기화 (30초 간격) */}
+      <BalanceSyncManager user={user} />
+      
       <div className="h-screen flex w-full overflow-hidden bg-[#0a0e1a]">
         <div className={cn(
           "fixed left-0 top-0 h-screen transition-all duration-300 z-40",
@@ -63,25 +69,11 @@ export function AdminLayout({ children, currentRoute, onNavigate }: AdminLayoutP
             />
           </header>
           
-          <main className="flex-1 p-6 overflow-y-auto bg-[#0a0e1a] pb-20">
+          <main className="flex-1 p-6 overflow-y-auto bg-[#0a0e1a]">
             <div className="max-w-[1600px] mx-auto space-y-6">
               {children}
             </div>
           </main>
-
-          {/* 사용자 페이지로 이동 버튼 (고정) */}
-          <div className="fixed bottom-6 right-6 z-50">
-            <Button
-              onClick={() => {
-                window.history.pushState({}, '', '/user');
-                window.dispatchEvent(new Event('popstate'));
-              }}
-              className="h-14 px-6 rounded-xl shadow-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 border border-cyan-400/30 transition-all duration-300 hover:scale-105 hover:shadow-cyan-500/50"
-            >
-              <ExternalLink className="h-5 w-5 mr-2" />
-              <span className="font-semibold">사용자 페이지</span>
-            </Button>
-          </div>
         </div>
       </div>
     </SidebarProvider>

@@ -57,7 +57,6 @@ export function UserCasino({ user, onRouteChange }: UserCasinoProps) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [games, setGames] = useState<CasinoGame[]>([]);
-  const [featuredGames, setFeaturedGames] = useState<CasinoGame[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [launchingGameId, setLaunchingGameId] = useState<number | null>(null);
@@ -205,18 +204,9 @@ export function UserCasino({ user, onRouteChange }: UserCasinoProps) {
 
       setGames(sortedGames);
       
-      // 추천 게임 3개 선택 (featured 게임 우선, 없으면 상위 게임)
-      const featured = sortedGames.filter(g => g.is_featured).slice(0, 3);
-      if (featured.length < 3) {
-        const additional = sortedGames.filter(g => !g.is_featured).slice(0, 3 - featured.length);
-        setFeaturedGames([...featured, ...additional]);
-      } else {
-        setFeaturedGames(featured);
-      }
-      
     } catch (error) {
       console.error('❌ 카지노 게임 로드 실패:', error);
-      toast.error('카지노 게임을 불러오는데 실패했습니다.');
+      toast.error('카지노 게���을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -368,50 +358,50 @@ export function UserCasino({ user, onRouteChange }: UserCasinoProps) {
       
       <div className="relative z-10 space-y-8 p-4 sm:p-6 lg:p-8">
         {/* VIP 헤더 */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Crown className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
-            <h1 className="text-5xl lg:text-6xl font-bold gold-text neon-glow">
+        <div className="text-center space-y-6">
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <Crown className="w-16 h-16 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
+            <h1 className="text-6xl lg:text-7xl font-bold gold-text neon-glow">
               VIP 라이브 카지노
             </h1>
-            <Crown className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
+            <Crown className="w-16 h-16 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
           </div>
-          <p className="text-2xl text-yellow-100 tracking-wide">
+          <p className="text-3xl text-yellow-100 tracking-wide">
             세계 최고의 딜러와 함께하는 프리미엄 게임 경험
           </p>
-          <div className="flex items-center justify-center gap-4 text-yellow-300/80">
+          <div className="flex items-center justify-center gap-6 text-yellow-300/80 text-lg">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
               <span>실시간 라이브</span>
             </div>
-            <div className="w-px h-4 bg-yellow-600/50" />
+            <div className="w-px h-6 bg-yellow-600/50" />
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
+              <Users className="w-5 h-5" />
               <span>24시간 운영</span>
             </div>
-            <div className="w-px h-4 bg-yellow-600/50" />
+            <div className="w-px h-6 bg-yellow-600/50" />
             <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4" />
+              <Trophy className="w-5 h-5" />
               <span>VIP 전용</span>
             </div>
           </div>
         </div>
 
         {/* 검색 및 필터 */}
-        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-yellow-400" />
+        <div className="flex flex-col lg:flex-row gap-5 items-center justify-between">
+          <div className="relative flex-1 max-w-xl">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-yellow-400" />
             <Input
               type="text"
               placeholder="게임 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-black/50 border-yellow-600/30 text-white placeholder:text-yellow-200/50 focus:border-yellow-500"
+              className="pl-12 h-14 text-lg bg-black/50 border-yellow-600/30 text-white placeholder:text-yellow-200/50 focus:border-yellow-500"
             />
           </div>
           
           {/* 카테고리 선택 */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {gameCategories.map((category) => {
               const Icon = category.icon;
               const isActive = selectedCategory === category.id;
@@ -421,17 +411,17 @@ export function UserCasino({ user, onRouteChange }: UserCasinoProps) {
                   variant="ghost"
                   onClick={() => setSelectedCategory(category.id)}
                   className={`
-                    relative px-4 py-2 text-sm font-semibold transition-all duration-300
+                    relative px-6 py-4 text-lg font-bold transition-all duration-300
                     ${isActive 
-                      ? `bg-gradient-to-r ${category.gradient} text-white shadow-lg shadow-yellow-500/50` 
+                      ? `bg-gradient-to-r ${category.gradient} text-white shadow-lg shadow-yellow-500/50 scale-105` 
                       : 'text-yellow-200/80 hover:text-yellow-100 hover:bg-yellow-900/20 border border-transparent hover:border-yellow-600/30'
                     }
                   `}
                 >
-                  <Icon className="w-4 h-4 mr-2" />
+                  <Icon className="w-5 h-5 mr-2" />
                   {category.name}
                   {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-300 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-300 to-transparent" />
                   )}
                 </Button>
               );
@@ -439,65 +429,8 @@ export function UserCasino({ user, onRouteChange }: UserCasinoProps) {
           </div>
         </div>
 
-        {/* 추천 게임 배너 */}
-        {featuredGames.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {featuredGames.map((game, index) => {
-              const gradients = [
-                'from-purple-600/80 to-pink-600/80',
-                'from-red-600/80 to-orange-600/80',
-                'from-green-600/80 to-emerald-600/80'
-              ];
-              return (
-                <div
-                  key={game.game_id}
-                  className="relative group cursor-pointer overflow-hidden rounded-2xl luxury-card border-2 border-yellow-600/40 game-card-hover"
-                  onClick={() => handleGameClick(game)}
-                >
-                  <div className="aspect-[16/10] relative">
-                    <ImageWithFallback
-                      src={getGameImage(game)}
-                      alt={game.game_name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className={`absolute inset-0 bg-gradient-to-t ${gradients[index % 3]} transition-opacity duration-300`} />
-                    
-                    <div className="absolute inset-0 flex flex-col justify-end p-6 text-white">
-                      <div className="space-y-2">
-                        <Badge className="vip-badge text-white px-3 py-1 w-fit">
-                          <Sparkles className="w-3 h-3 mr-1" />
-                          VIP 추천
-                        </Badge>
-                        <h3 className="text-2xl font-bold neon-glow">{game.game_name}</h3>
-                        <p className="text-lg text-yellow-100">{game.provider_name}</p>
-                      </div>
-                      
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
-                        {launchingGameId === game.game_id ? (
-                          <div className="flex flex-col items-center gap-2 text-white">
-                            <Loader className="w-8 h-8 animate-spin" />
-                            <span className="text-sm font-semibold">입장 중...</span>
-                          </div>
-                        ) : (
-                          <Button 
-                            size="lg" 
-                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold shadow-lg"
-                          >
-                            <Play className="w-5 h-5 mr-2" />
-                            VIP 입장
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* 제공사 선택 */}
-        <div className="luxury-card rounded-2xl p-6 border-2 border-yellow-600/20">
+        <div className="luxury-card rounded-3xl p-8 border-2 border-yellow-600/20">
           <GameProviderSelector
             selectedProvider={selectedProvider}
             onProviderChange={setSelectedProvider}

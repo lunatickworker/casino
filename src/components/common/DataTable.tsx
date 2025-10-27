@@ -143,7 +143,7 @@ export function DataTable<T extends Record<string, any>>({
       <div className="table-premium rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="border-slate-700/50 hover:bg-slate-700/30">
+            <TableRow className="border-slate-700/50 hover:bg-transparent">
               {columns.map((column, index) => {
                 const columnKey = (column.key || column.accessor) as string;
                 const columnTitle = column.title || column.header || '';
@@ -152,14 +152,14 @@ export function DataTable<T extends Record<string, any>>({
                   <TableHead
                     key={index}
                     className={cn(
-                      "whitespace-nowrap text-slate-300 font-semibold",
+                      "whitespace-nowrap text-[#94a3b8] font-semibold text-center",
                       column.sortable && "cursor-pointer hover:bg-slate-700/50",
                       column.className
                     )}
                     style={{ width: column.width }}
                     onClick={() => column.sortable && handleSort(columnKey)}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-center gap-1">
                       {columnTitle}
                       {column.sortable && sortConfig?.key === columnKey && sortConfig.direction && (
                         <span className="text-xs text-blue-400">
@@ -197,7 +197,7 @@ export function DataTable<T extends Record<string, any>>({
                     onClick={() => onRowClick?.(row, startIndex + rowIndex)}
                   >
                     {columns.map((column, colIndex) => (
-                      <TableCell key={`${uniqueKey}-col-${colIndex}`} className={column.className}>
+                      <TableCell key={`${uniqueKey}-col-${colIndex}`} className={cn("text-center", column.className)}>
                         {column.render
                           ? column.render(getCellValue(row, column), row, startIndex + rowIndex)
                           : column.cell

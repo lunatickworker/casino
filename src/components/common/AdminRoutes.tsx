@@ -7,6 +7,7 @@ const UserManagement = lazy(() => import("../admin/UserManagement").then(m => ({
 const BlacklistManagement = lazy(() => import("../admin/BlacklistManagement").then(m => ({ default: m.BlacklistManagement })));
 const PointManagement = lazy(() => import("../admin/PointManagement").then(m => ({ default: m.PointManagement })));
 const OnlineUsers = lazy(() => import("../admin/OnlineUsers").then(m => ({ default: m.OnlineUsers })));
+const PartnerConnectionStatus = lazy(() => import("../admin/PartnerConnectionStatus").then(m => ({ default: m.PartnerConnectionStatus })));
 const PartnerManagement = lazy(() => import("../admin/PartnerManagement").then(m => ({ default: m.PartnerManagement })));
 const PartnerCreation = lazy(() => import("../admin/PartnerCreation").then(m => ({ default: m.PartnerCreation })));
 const PartnerTransactions = lazy(() => import("../admin/PartnerTransactions").then(m => ({ default: m.PartnerTransactions })));
@@ -50,8 +51,9 @@ export function AdminRoutes({ currentRoute, user }: AdminRoutesProps) {
       return <PointManagement />;
     case '/admin/online':
     case '/admin/online-users':
-    case '/admin/online-status':
       return <OnlineUsers user={user} />;
+    case '/admin/online-status':
+      return <PartnerConnectionStatus user={user} />;
     case '/admin/logs':
       return <BettingHistory user={user} />;
 
@@ -67,7 +69,8 @@ export function AdminRoutes({ currentRoute, user }: AdminRoutesProps) {
       return <PartnerTransactions />;
     case '/admin/partner-online':
     case '/admin/partners/status':
-      return <OnlineUsers user={user} />;
+    case '/admin/partner-connection-status':
+      return <PartnerConnectionStatus user={user} />;
     case '/admin/partner-dashboard':
     case '/admin/partners/dashboard':
       return <Dashboard user={user} />;

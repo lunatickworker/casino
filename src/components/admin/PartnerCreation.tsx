@@ -530,7 +530,12 @@ export function PartnerCreation({ user }: PartnerCreationProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {partnerTypes
-                      .filter(type => user.level === 1 || type.level > user.level)
+                      .filter(type => {
+                        // ✅ 시스템관리자(level 1)는 모든 파트너 등급 생성 가능
+                        if (user.level === 1) return true;
+                        // 다른 레벨은 자신보다 하위 레벨만 생성 가능
+                        return type.level > user.level;
+                      })
                       .map((type) => (
                         <SelectItem key={type.value} value={type.value}>
                           {type.label} (Level {type.level})

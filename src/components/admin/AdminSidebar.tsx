@@ -306,9 +306,15 @@ export function AdminSidebar({ user, className, onNavigate, currentRoute }: Admi
       </div>
 
       <div className="p-3 border-t border-slate-700/50 flex-shrink-0">
-        <div className="text-xs text-slate-500 text-center truncate">
-          {user.partner_type} · Lv.{user.level}
-        </div>
+        <button
+          onClick={() => {
+            window.history.pushState({}, '', '/user');
+            window.dispatchEvent(new Event('popstate'));
+          }}
+          className="w-full text-xs text-slate-500 hover:text-slate-300 text-center truncate transition-colors cursor-pointer"
+        >
+          GMS v1.0
+        </button>
       </div>
     </div>
   );

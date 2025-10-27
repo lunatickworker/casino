@@ -170,7 +170,7 @@ export function ForceTransactionModal({
       }
       onOpenChange(o);
     }}>
-      <DialogContent className="bg-slate-900 border-slate-700 max-w-md">
+      <DialogContent className="bg-slate-900 border-slate-700 max-w-[224px]">
         <DialogHeader>
           <DialogTitle className="text-white">관리자 강제 입출금</DialogTitle>
           <DialogDescription className="text-slate-400">
@@ -277,8 +277,8 @@ export function ForceTransactionModal({
               className="bg-slate-800 border-slate-700 text-white"
             />
 
-            {/* 금액 단축 버튼 */}
-            <div className="grid grid-cols-5 gap-2">
+            {/* 금액 단축 버튼 - 컴팩트 디자인 */}
+            <div className="grid grid-cols-5 gap-1.5">
               {amountShortcuts.map(shortcut => (
                 <Button
                   key={shortcut.value}
@@ -286,7 +286,7 @@ export function ForceTransactionModal({
                   variant="outline"
                   size="sm"
                   onClick={() => handleAmountShortcut(shortcut.value)}
-                  className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600 text-xs h-8"
+                  className="bg-slate-700/80 border-slate-600/50 text-white hover:bg-slate-600 text-xs h-7 px-2"
                 >
                   {shortcut.label}
                 </Button>
