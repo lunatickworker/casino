@@ -250,7 +250,7 @@ export function BettingHistorySync({ user }: BettingHistorySyncProps) {
     try {
       isProcessingRef.current = true;
 
-      // ✅ 세션 확인: 활성 세션이 없으면 동기화 중단
+      // ✅ 활성 세션 확인: active 세션이 있을 때만 동기화
       const { data: activeSessions, error: sessionError } = await supabase
         .from('game_launch_sessions')
         .select('id')

@@ -363,19 +363,6 @@ export function UserLayout({ user, currentRoute, onRouteChange, onLogout, childr
 
       {/* 하단 그라데이션 효과 */}
       <div className="fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-0" />
-      
-      {/* 관리자 페이지 이동 버튼 (우측 하단) */}
-      <Button
-        onClick={() => {
-          window.history.pushState({}, '', '/admin');
-          window.dispatchEvent(new Event('popstate'));
-        }}
-        className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg hover:shadow-xl transition-all"
-        size="lg"
-      >
-        <Shield className="w-5 h-5 mr-2" />
-        관리자
-      </Button>
     </div>
   );
 }

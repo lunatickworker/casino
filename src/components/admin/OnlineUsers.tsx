@@ -88,7 +88,7 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
             )
           )
         `)
-        .eq('status', 'online')
+        .eq('status', 'active')
         .order('launched_at', { ascending: false });
 
       // 시스템관리자(level 1)가 아닌 경우 자신의 하위 사용자만 필터링

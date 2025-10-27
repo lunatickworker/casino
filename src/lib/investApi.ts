@@ -139,6 +139,8 @@ function md5Hash(input: string): string {
   return toHex(a) + toHex(b) + toHex(c) + toHex(d);
 }
 
+import { supabase } from './supabase';
+
 // Invest API 설정
 const INVEST_API_BASE_URL = 'https://api.invest-ho.com';
 const PROXY_URL = 'https://vi8282.com/proxy';
@@ -302,6 +304,20 @@ export async function callInvestApi(
         }
         console.error('❌ Proxy 서버 오류:', errorText);
         
+        // ✅ api_sync_logs에 실패 로그 기록
+        try {
+          await supabase.from('api_sync_logs').insert({
+            opcode: body?.opcode || 'N/A',
+            api_endpoint: endpoint,
+            sync_type: method,
+            status: 'error',
+            error_message: `HTTP ${response.status}: ${errorText}`,
+            response_data: { http_status: response.status }
+          });
+        } catch (logError) {
+          console.warn('⚠️ api_sync_logs 기록 실패:', logError);
+        }
+        
         // 5xx 오류는 재시도, 4xx 오류는 즉시 반환
         if (response.status >= 500 && attempt < retries) {
           lastError = new Error(`서버 오류 (${response.status}): ${errorText}`);
@@ -370,6 +386,20 @@ export async function callInvestApi(
         keys: typeof result === 'object' ? Object.keys(result) : null
       });
       
+      // ✅ api_sync_logs에 성공 로그 기록
+      try {
+        await supabase.from('api_sync_logs').insert({
+          opcode: body?.opcode || 'N/A',
+          api_endpoint: endpoint,
+          sync_type: method,
+          status: 'success',
+          error_message: null,
+          response_data: result
+        });
+      } catch (logError) {
+        console.warn('⚠️ api_sync_logs 기록 실패:', logError);
+      }
+      
       return {
         data: result,
         error: null,
@@ -416,6 +446,20 @@ export async function callInvestApi(
   // 모든 재시도 실패
   const errorMessage = lastError instanceof Error ? lastError.message : '알 수 없는 오류';
   console.error('❌ 모든 재시도 실패:', errorMessage);
+  
+  // ✅ api_sync_logs에 실패 로그 기록
+  try {
+    await supabase.from('api_sync_logs').insert({
+      opcode: body?.opcode || 'N/A',
+      api_endpoint: endpoint,
+      sync_type: method,
+      status: 'error',
+      error_message: `재시도 ${retries}회 실패: ${errorMessage}`,
+      response_data: null
+    });
+  } catch (logError) {
+    console.warn('⚠️ api_sync_logs 기록 실패:', logError);
+  }
   
   return {
     data: null,

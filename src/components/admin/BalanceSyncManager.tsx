@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getInfo, getAllAccountBalances } from '../../lib/investApi';
 import { getAdminOpcode, isMultipleOpcode } from '../../lib/opcodeHelper';
@@ -12,15 +12,27 @@ interface BalanceSyncManagerProps {
  * ✅ 보유금 자동 동기화 매니저
  * 
  * 권한 레벨에 따라 다른 API를 호출하여 보유금을 동기화합니다:
- * - level 1 (시스템관리자), level 2 (본사): GET /api/info 호출
- * - level 2 user, level 3-7: PATCH /api/account/balance 호출하여 users/partners 테이블 동기화
+ * - level 1 (시스템관리자): GET /api/info 호출
+ * - level 2~7: PATCH /api/account/balance 호출하여 users/partners 테이블 동기화
  * 
  * 30초마다 자동 실행됩니다.
  */
 export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
   const isSyncingRef = useRef(false);
+  const lastSyncTimeRef = useRef<number>(0);
 
-  const syncAllBalances = async () => {
+  const syncAllBalances = useCallback(async () => {
+    const now = Date.now();
+    const timeSinceLastSync = now - lastSyncTimeRef.current;
+    
+    // 최소 25초 간격 보장 (30초 interval이지만 안전하게 25초)
+    if (timeSinceLastSync < 25000) {
+      console.log('⏸️ [BalanceSync] 너무 빠른 호출 방지:', {
+        timeSinceLastSync: Math.floor(timeSinceLastSync / 1000) + '초'
+      });
+      return;
+    }
+
     if (isSyncingRef.current) {
       console.log('⏸️ [BalanceSync] 이미 동기화 중...');
       return;
@@ -28,11 +40,13 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
 
     try {
       isSyncingRef.current = true;
+      lastSyncTimeRef.current = now;
 
       console.log('🔄 [BalanceSync] 자동 동기화 시작:', {
         partner_id: user.id,
         username: user.username,
-        level: user.level
+        level: user.level,
+        timestamp: new Date().toISOString()
       });
 
       // opcode 정보 조회
@@ -56,14 +70,14 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
         partnerId = opcodeInfo.partnerId;
       }
 
-      // ✅ 권한 레벨에 따라 다른 API 호출
-      const shouldUseInfoAPI = user.level === 1 || user.level === 2;
+      // ✅ level 1만 GET /api/info 호출, level 2~7은 PATCH /api/account/balance 호출
+      const shouldUseInfoAPI = user.level === 1;
 
       if (shouldUseInfoAPI) {
         // ========================================
-        // 시스템관리자/본사: GET /api/info
+        // 시스템관리자: GET /api/info
         // ========================================
-        console.log('📡 [BalanceSync] GET /api/info 호출 (level 1-2)');
+        console.log('📡 [BalanceSync] GET /api/info 호출 (level 1)');
         
         const apiResult = await getInfo(opcode, secretKey);
 
@@ -83,7 +97,7 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
               newBalance = parseFloat(apiData.balance || 0);
             }
           } else if (apiData.is_text && apiData.text_response) {
-            const balanceMatch = apiData.text_response.match(/balance["'\s:]+(\\d+\\.?\\d*)/i);
+            const balanceMatch = apiData.text_response.match(/balance[\"'\s:]+(\d+\.?\d*)/i);
             if (balanceMatch) {
               newBalance = parseFloat(balanceMatch[1]);
             }
@@ -106,9 +120,9 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
 
       } else {
         // ========================================
-        // level 2 user, level 3-7: PATCH /api/account/balance
+        // level 2~7: PATCH /api/account/balance
         // ========================================
-        console.log('📡 [BalanceSync] PATCH /api/account/balance 호출 (level 2 user ~ 7)');
+        console.log('📡 [BalanceSync] PATCH /api/account/balance 호출 (level 2~7)');
         
         const apiResult = await getAllAccountBalances(opcode, secretKey);
 
@@ -139,7 +153,7 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
         console.log(`📊 [BalanceSync] ${balanceRecords.length}건의 잔고 정보 수신`);
 
         // ✅ username 매핑하여 users와 partners 테이블 동기화
-        // ⚠️ 중요: username이 있는 데이터만 업데이트, 없는 username은 무시 (0으로 업데이트 절대 안함)
+        // ⚠️ 중요: username이 있는 데이터만 업데이트, 없는 username은 무시
         let userUpdateCount = 0;
         let partnerUpdateCount = 0;
         let skippedCount = 0;
@@ -148,7 +162,7 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
           const username = record.username || record.user_id || record.id;
           const balance = parseFloat(record.balance || record.amount || 0);
 
-          // username이 없는 경우 건너뜀 (무시)
+          // username이 없는 경우 건너뜀
           if (!username || username === '') {
             skippedCount++;
             continue;
@@ -164,7 +178,6 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
             .eq('username', username)
             .select('id');
 
-          // 실제로 업데이트된 레코드만 카운트 (없는 username은 무시)
           if (!userError && userData && userData.length > 0) {
             userUpdateCount++;
           }
@@ -179,7 +192,6 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
             .eq('username', username)
             .select('id');
 
-          // 실제로 업데이트된 레코드만 카운트 (없는 username은 무시)
           if (!partnerError && partnerData && partnerData.length > 0) {
             partnerUpdateCount++;
           }
@@ -189,8 +201,7 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
           total_records: balanceRecords.length,
           users_updated: userUpdateCount,
           partners_updated: partnerUpdateCount,
-          skipped_no_username: skippedCount,
-          note: '없는 username은 무시됨 (0으로 업데이트 안함)'
+          skipped_no_username: skippedCount
         });
       }
 
@@ -199,26 +210,33 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
     } finally {
       isSyncingRef.current = false;
     }
-  };
+  }, [user]); // user를 dependency에 추가
 
   // 30초마다 자동 동기화
   useEffect(() => {
-    console.log('🎯 [BalanceSync] 자동 동기화 시작 (30초 간격)');
+    console.log('🎯 [BalanceSync] 자동 동기화 시작 (30초 간격):', {
+      partner_id: user.id,
+      username: user.username,
+      timestamp: new Date().toISOString()
+    });
 
     // 즉시 1회 실행
     syncAllBalances();
 
     // 30초마다 실행
     const interval = setInterval(() => {
+      console.log('⏰ [BalanceSync] 30초 타이머 실행:', new Date().toISOString());
       syncAllBalances();
     }, 30000);
 
     return () => {
-      console.log('🛑 [BalanceSync] 자동 동기화 중지');
+      console.log('🛑 [BalanceSync] 자동 동기화 중지:', {
+        partner_id: user.id,
+        timestamp: new Date().toISOString()
+      });
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [syncAllBalances]); // syncAllBalances를 dependency에 추가
 
   return null;
 }

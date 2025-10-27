@@ -110,11 +110,11 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
             points: parseFloat(newData.points) || 0
           });
 
-          // 잔고 변경 알림
-          toast.success(`보유금이 업데이트되었습니다: ₩${parseFloat(newData.balance).toLocaleString()}`, {
-            duration: 3000,
-            icon: '💰'
-          });
+          // 잔고 변경 알림 (숨김 처리)
+          // toast.success(`보유금이 업데이트되었습니다: ₩${parseFloat(newData.balance).toLocaleString()}`, {
+          //   duration: 3000,
+          //   icon: '💰'
+          // });
         }
       )
       .on(
@@ -269,12 +269,18 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
           <div className="flex items-center justify-between h-16 min-w-0">
             {/* 로고 */}
             <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
-              <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden golden-border">
+              <button
+                onClick={() => {
+                  window.history.pushState({}, '', '/admin');
+                  window.dispatchEvent(new Event('popstate'));
+                }}
+                className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden golden-border cursor-pointer hover:opacity-80 transition-opacity"
+              >
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500 via-red-600 to-yellow-500" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Crown className="w-5 h-5 sm:w-7 sm:h-7 text-white drop-shadow-lg relative z-10" />
                 </div>
-              </div>
+              </button>
               <div className="hidden sm:block">
                 <div className="text-lg sm:text-2xl font-bold gold-text neon-glow tracking-wide">VIP CASINO</div>
                 <div className="text-[9px] sm:text-[10px] text-yellow-400 tracking-widest uppercase">LUXURY EXPERIENCE</div>

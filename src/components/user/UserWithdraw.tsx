@@ -53,7 +53,7 @@ export function UserWithdraw({ user, onRouteChange }: UserWithdrawProps) {
   const [currentBalance, setCurrentBalance] = useState(0);
   const [isWithdrawLocked, setIsWithdrawLocked] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [quickAmounts] = useState([50000, 100000, 300000, 500000, 1000000]);
+  const [quickAmounts] = useState([1000, 3000, 5000, 10000, 30000, 50000, 100000, 300000, 500000, 1000000]);
   
   const availableBanks = [
     '국민은행', '신한은행', '우리은행', 'KB국민은행', 'KEB하나은행',
@@ -132,7 +132,7 @@ export function UserWithdraw({ user, onRouteChange }: UserWithdrawProps) {
 
     const withdrawAmount = parseFloat(amount);
     if (withdrawAmount < 10000) {
-      toast.error('최소 출금 금액은 10,000원입니다.');
+      toast.error('최소 출금액은 10,000원입니다.');
       return;
     }
 
@@ -399,28 +399,52 @@ export function UserWithdraw({ user, onRouteChange }: UserWithdrawProps) {
                 <Label htmlFor="amount" className="text-slate-300">출금 금액 *</Label>
                 <Input
                   id="amount"
-                  type="number"
+                  type="text"
                   placeholder="출금할 금액을 입력하세요"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    setAmount(value);
+                  }}
                   className="bg-slate-700/50 border-slate-600 text-white"
                   disabled={isWithdrawLocked}
                 />
                 
-                {/* 빠른 금액 선택 */}
+                {/* 빠른 금액 선택 + 전액 출금 */}
                 <div className="flex flex-wrap gap-2 mt-2">
                   {quickAmounts.map((quickAmount) => (
                     <Button
                       key={quickAmount}
                       variant="outline"
                       size="sm"
-                      onClick={() => setAmount(quickAmount.toString())}
+                      onClick={() => {
+                        const currentAmount = parseInt(amount) || 0;
+                        setAmount((currentAmount + quickAmount).toString());
+                      }}
                       className="text-xs border-slate-600 text-slate-300 hover:bg-slate-700"
                       disabled={isWithdrawLocked}
                     >
-                      {formatCurrency(quickAmount)}
+                      +{formatCurrency(quickAmount)}
                     </Button>
                   ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAmount(currentBalance.toString())}
+                    className="text-xs border-green-600 text-green-400 hover:bg-green-900/20"
+                    disabled={isWithdrawLocked}
+                  >
+                    전액출금
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAmount('')}
+                    className="text-xs border-red-600 text-red-400 hover:bg-red-900/20"
+                    disabled={isWithdrawLocked}
+                  >
+                    삭제
+                  </Button>
                 </div>
               </div>
 

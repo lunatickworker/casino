@@ -42,43 +42,15 @@ interface DepositHistory {
   processed_at?: string;
 }
 
-interface BankAccount {
-  bank_name: string;
-  account_number: string;
-  holder_name: string;
-  is_active: boolean;
-}
-
 export function UserDeposit({ user, onRouteChange }: UserDepositProps) {
   const { sendMessage } = useMessageQueue();
   const [amount, setAmount] = useState('');
-  const [selectedBank, setSelectedBank] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [depositorName, setDepositorName] = useState('');
   const [memo, setMemo] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [depositHistory, setDepositHistory] = useState<DepositHistory[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [availableBanks, setAvailableBanks] = useState<BankAccount[]>([]);
-  const [quickAmounts] = useState([50000, 100000, 300000, 500000, 1000000]);
+  const [quickAmounts] = useState([1000, 3000, 5000, 10000, 30000, 50000, 100000, 300000, 500000, 1000000]);
   const [currentBalance, setCurrentBalance] = useState(0);
-
-  // 사용 가능한 은행 계좌 조회
-  const fetchAvailableBanks = async () => {
-    try {
-      // 실제로는 시스템 설정에서 관리자가 등록한 입금 계좌들을 조회해야 함
-      const mockBanks: BankAccount[] = [
-        { bank_name: '국민은행', account_number: '123456-78-901234', holder_name: 'GMS카지노', is_active: true },
-        { bank_name: '신한은행', account_number: '110-456-789012', holder_name: 'GMS카지노', is_active: true },
-        { bank_name: '우리은행', account_number: '1002-987-654321', holder_name: 'GMS카지노', is_active: true },
-        { bank_name: 'KB은행', account_number: '123-456789-01-234', holder_name: 'GMS카지노', is_active: true }
-      ];
-      
-      setAvailableBanks(mockBanks);
-    } catch (error) {
-      console.error('은행 계좌 조회 오류:', error);
-    }
-  };
 
   // 입금 내역 조회
   const fetchDepositHistory = async () => {
@@ -122,7 +94,7 @@ export function UserDeposit({ user, onRouteChange }: UserDepositProps) {
   const handleDepositSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!amount || !selectedBank || !accountNumber || !depositorName) {
+    if (!amount) {
       toast.error('모든 필수 항목을 입력해주세요.');
       return;
     }
@@ -153,9 +125,9 @@ export function UserDeposit({ user, onRouteChange }: UserDepositProps) {
         status: 'pending',
         balance_before: currentBalance,
         balance_after: currentBalance, // 승인 전에는 잔고 변동 없음
-        bank_name: selectedBank,
-        bank_account: accountNumber,
-        bank_holder: depositorName,
+        bank_name: '국민은행',
+        bank_account: '123456-78-901234', // 실제 계좌번호는 사용자가 선택한 은행 계좌로 설정
+        bank_holder: 'GMS카지노',
         memo: memo.trim() || null,
         // processed_by는 명시하지 않음 - 기본값 NULL 사용
         created_at: new Date().toISOString(),
@@ -188,9 +160,9 @@ export function UserDeposit({ user, onRouteChange }: UserDepositProps) {
         username: user.username,
         nickname: user.nickname,
         amount: depositAmount,
-        bank_name: selectedBank,
-        bank_account: accountNumber,
-        depositor_name: depositorName,
+        bank_name: '국민은행',
+        bank_account: '123456-78-901234', // 실제 계좌번호는 사용자가 선택한 은행 계좌로 설정
+        depositor_name: 'GMS카지노',
         memo: memo.trim() || null,
         subject: `${user.nickname}님의 입금 신청`,
         reference_type: 'transaction',
@@ -212,16 +184,13 @@ export function UserDeposit({ user, onRouteChange }: UserDepositProps) {
           target_id: insertedData.id,
           details: {
             amount: depositAmount,
-            bank_name: selectedBank,
-            depositor_name: depositorName
+            bank_name: '국민은행',
+            depositor_name: 'GMS카지노'
           }
         }]);
 
       // 폼 초기화
       setAmount('');
-      setSelectedBank('');
-      setAccountNumber('');
-      setDepositorName('');
       setMemo('');
 
       // 즉시 내역 새로고침
@@ -239,9 +208,10 @@ export function UserDeposit({ user, onRouteChange }: UserDepositProps) {
     }
   };
 
-  // 빠른 금액 선택
+  // 빠른 금액 선택 (누적)
   const handleQuickAmount = (value: number) => {
-    setAmount(value.toString());
+    const currentAmount = parseInt(amount) || 0;
+    setAmount((currentAmount + value).toString());
   };
 
   // 상태별 색상 및 아이콘
@@ -294,7 +264,6 @@ export function UserDeposit({ user, onRouteChange }: UserDepositProps) {
   };
 
   useEffect(() => {
-    fetchAvailableBanks();
     fetchDepositHistory();
     fetchCurrentBalance();
 
@@ -383,11 +352,6 @@ export function UserDeposit({ user, onRouteChange }: UserDepositProps) {
                     }}
                     className="bg-slate-700/50 border-slate-600 text-white text-lg"
                   />
-                  {amount && (
-                    <p className="text-sm text-slate-400">
-                      ₩{formatCurrency(parseInt(amount) || 0)}
-                    </p>
-                  )}
                 </div>
 
                 {/* 빠른 금액 선택 */}
@@ -403,58 +367,19 @@ export function UserDeposit({ user, onRouteChange }: UserDepositProps) {
                         onClick={() => handleQuickAmount(value)}
                         className="whitespace-nowrap"
                       >
-                        {formatCurrency(value)}원
+                        +{formatCurrency(value)}원
                       </Button>
                     ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAmount('')}
+                      className="whitespace-nowrap border-red-600 text-red-400 hover:bg-red-900/20"
+                    >
+                      삭제
+                    </Button>
                   </div>
-                </div>
-
-                {/* 입금 은행 선택 */}
-                <div className="space-y-2">
-                  <Label htmlFor="bank" className="text-slate-300">입금 은행 *</Label>
-                  <Select value={selectedBank} onValueChange={setSelectedBank}>
-                    <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                      <SelectValue placeholder="입금할 은행을 선택하세요" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700">
-                      {availableBanks.map((bank) => (
-                        <SelectItem key={bank.bank_name} value={bank.bank_name}>
-                          <div className="flex flex-col">
-                            <span>{bank.bank_name}</span>
-                            <span className="text-sm text-slate-400">
-                              {bank.account_number} ({bank.holder_name})
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 입금자 계좌번호 */}
-                <div className="space-y-2">
-                  <Label htmlFor="accountNumber" className="text-slate-300">입금자 계좌번호 *</Label>
-                  <Input
-                    id="accountNumber"
-                    type="text"
-                    placeholder="입금에 사용할 계좌번호를 입력하세요"
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    className="bg-slate-700/50 border-slate-600 text-white"
-                  />
-                </div>
-
-                {/* 입금자명 */}
-                <div className="space-y-2">
-                  <Label htmlFor="depositorName" className="text-slate-300">입금자명 *</Label>
-                  <Input
-                    id="depositorName"
-                    type="text"
-                    placeholder="실제 입금하실 분의 성함을 입력하세요"
-                    value={depositorName}
-                    onChange={(e) => setDepositorName(e.target.value)}
-                    className="bg-slate-700/50 border-slate-600 text-white"
-                  />
                 </div>
 
                 {/* 메모 */}
