@@ -447,8 +447,10 @@ export function BettingManagement({ user }: BettingManagementProps) {
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-700/50">
             <div>
-              <Label className="text-slate-300">사용자명 검색</Label>
+              <Label htmlFor="betting-user-search" className="text-slate-300">사용자명 검색</Label>
               <Input
+                id="betting-user-search"
+                name="user_search"
                 placeholder="사용자명 입력..."
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}

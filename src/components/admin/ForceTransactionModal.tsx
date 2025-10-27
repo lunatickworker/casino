@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, TrendingUp, TrendingDown, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -52,18 +52,18 @@ export function ForceTransactionModal({
   const [searchOpen, setSearchOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // 금액 단축 버튼
+  // 금액 단축 버튼 (포인트 모달과 동일하게 4개씩)
   const amountShortcuts = [
-    { label: '1천', value: 1000 },
-    { label: '3천', value: 3000 },
-    { label: '5천', value: 5000 },
-    { label: '1만', value: 10000 },
-    { label: '3만', value: 30000 },
-    { label: '5만', value: 50000 },
-    { label: '100만', value: 1000000 },
-    { label: '300만', value: 3000000 },
-    { label: '500만', value: 5000000 },
-    { label: '1000만', value: 10000000 }
+    1000,
+    3000, 
+    5000,
+    10000,
+    30000,
+    50000,
+    100000,
+    300000,
+    500000,
+    1000000
   ];
 
   // 선택된 대상: prop으로 받은 것 우선, 없으면 내부 state 사용
@@ -71,7 +71,7 @@ export function ForceTransactionModal({
   const currentBalance = selectedTarget ? parseFloat(selectedTarget.balance?.toString() || '0') : 0;
   const isTargetFixed = !!propSelectedTarget;
 
-  // 금액 단축 버튼 클릭
+  // 금액 단축 버튼 클릭 (누적 더하기)
   const handleAmountShortcut = (value: number) => {
     const currentAmount = parseFloat(amount || '0');
     const newAmount = currentAmount + value;
@@ -170,20 +170,32 @@ export function ForceTransactionModal({
       }
       onOpenChange(o);
     }}>
-      <DialogContent className="bg-slate-900 border-slate-700 max-w-[224px]">
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle className="text-white">관리자 강제 입출금</DialogTitle>
-          <DialogDescription className="text-slate-400">
-            회원의 잔액을 직접 조정합니다.
+          <DialogTitle className="flex items-center gap-2">
+            {type === 'deposit' ? (
+              <>
+                <TrendingUp className="h-5 w-5 text-emerald-500" />
+                강제 입금
+              </>
+            ) : (
+              <>
+                <TrendingDown className="h-5 w-5 text-rose-500" />
+                강제 출금
+              </>
+            )}
+          </DialogTitle>
+          <DialogDescription>
+            {targetType === 'user' ? '회원' : '파트너'}의 잔액을 직접 조정합니다.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="grid gap-5 py-4">
           {/* 거래 유형 */}
-          <div className="space-y-2">
-            <Label className="text-slate-300">거래 유형</Label>
+          <div className="grid gap-2">
+            <Label htmlFor="force-transaction-type">거래 유형</Label>
             <Select value={type} onValueChange={(v: 'deposit' | 'withdrawal') => onTypeChange(v)}>
-              <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+              <SelectTrigger id="force-transaction-type" className="input-premium h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
@@ -195,50 +207,57 @@ export function ForceTransactionModal({
 
           {/* 회원 선택 - 고정된 대상이 없을 때만 표시 */}
           {!isTargetFixed && (
-            <div className="space-y-2">
-              <Label className="text-slate-300">{targetType === 'user' ? '회원' : '파트너'} 선택</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="force-transaction-target-search">{targetType === 'user' ? '회원' : '파트너'} 선택</Label>
               <Popover open={searchOpen} onOpenChange={setSearchOpen}>
                 <PopoverTrigger asChild>
                   <Button
+                    id="force-transaction-target-search"
                     variant="outline"
                     role="combobox"
-                    className="w-full justify-between bg-slate-800 border-slate-700 text-white hover:bg-slate-700"
+                    aria-expanded={searchOpen}
+                    className="justify-between input-premium h-10"
                   >
                     {selectedTargetId
-                      ? `${selectedTarget?.nickname} (${selectedTarget?.username})`
-                      : `${targetType === 'user' ? '회원' : '파트너'}을 선택하세요`}
-                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      ? `${selectedTarget?.username} (${selectedTarget?.nickname}) - ${currentBalance.toLocaleString()}원`
+                      : `아이디, 닉네임으로 검색`}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0 bg-slate-800 border-slate-700">
+                <PopoverContent className="w-[480px] p-0 bg-slate-800 border-slate-700">
                   <Command className="bg-slate-800">
                     <CommandInput 
-                      placeholder={`${targetType === 'user' ? '회원' : '파트너'} 검색...`}
-                      className="text-white"
+                      placeholder={`아이디, 닉네임으로 검색...`}
+                      className="h-9 text-slate-100 placeholder:text-slate-500"
                     />
                     <CommandList>
-                      <CommandEmpty className="text-slate-400 py-6 text-center">
+                      <CommandEmpty className="text-slate-400 py-6 text-center text-sm">
                         {targetType === 'user' ? '회원' : '파트너'}을 찾을 수 없습니다.
                       </CommandEmpty>
-                      <CommandGroup>
+                      <CommandGroup className="max-h-64 overflow-auto">
                         {targets.map(t => (
                           <CommandItem
                             key={t.id}
-                            value={`${t.nickname} ${t.username} ${t.id}`}
+                            value={`${t.username} ${t.nickname}`}
                             onSelect={() => {
                               setSelectedTargetId(t.id);
                               setSearchOpen(false);
                             }}
-                            className="text-white hover:bg-slate-700 cursor-pointer"
+                            className="flex items-center justify-between cursor-pointer hover:bg-slate-700/50 text-slate-300"
                           >
-                            <div className="flex flex-col w-full">
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium">{t.nickname}</span>
-                                <span className="text-sm text-slate-400">({t.username})</span>
+                            <div className="flex items-center gap-2">
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  selectedTargetId === t.id ? `opacity-100 ${type === 'deposit' ? 'text-emerald-500' : 'text-rose-500'}` : "opacity-0"
+                                }`}
+                              />
+                              <div>
+                                <div className="font-medium text-slate-100">{t.username}</div>
+                                <div className="text-xs text-slate-400">{t.nickname}</div>
                               </div>
-                              <div className="text-sm text-cyan-400 mt-1">
-                                잔액: {parseFloat(t.balance?.toString() || '0').toLocaleString()}원
-                              </div>
+                            </div>
+                            <div className="text-sm">
+                              <span className="text-cyan-400 font-mono">{parseFloat(t.balance?.toString() || '0').toLocaleString()}원</span>
                             </div>
                           </CommandItem>
                         ))}
@@ -267,86 +286,93 @@ export function ForceTransactionModal({
           )}
 
           {/* 금액 */}
-          <div className="space-y-2">
-            <Label className="text-slate-300">금액</Label>
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="force-transaction-amount">금액</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleClearAmount}
+                className={`h-7 px-2 text-xs text-slate-400 ${
+                  type === 'deposit' 
+                    ? 'hover:text-orange-400 hover:bg-orange-500/10' 
+                    : 'hover:text-red-400 hover:bg-red-500/10'
+                }`}
+              >
+                전체삭제
+              </Button>
+            </div>
             <Input
-              type="text"
+              id="force-transaction-amount"
+              name="amount"
+              type="number"
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
+              className="input-premium"
               placeholder="금액을 입력하세요"
-              className="bg-slate-800 border-slate-700 text-white"
             />
+          </div>
 
-            {/* 금액 단축 버튼 - 컴팩트 디자인 */}
-            <div className="grid grid-cols-5 gap-1.5">
-              {amountShortcuts.map(shortcut => (
+          {/* 금액 단축 버튼 */}
+          <div className="grid gap-2">
+            <Label className="text-slate-400 text-sm">단축 입력 (누적 더하기)</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {amountShortcuts.map((amt) => (
                 <Button
-                  key={shortcut.value}
+                  key={amt}
                   type="button"
                   variant="outline"
-                  size="sm"
-                  onClick={() => handleAmountShortcut(shortcut.value)}
-                  className="bg-slate-700/80 border-slate-600/50 text-white hover:bg-slate-600 text-xs h-7 px-2"
+                  onClick={() => handleAmountShortcut(amt)}
+                  className={`h-9 transition-all bg-slate-800/50 border-slate-700 text-slate-300 ${
+                    type === 'deposit'
+                      ? 'hover:bg-orange-500/20 hover:border-orange-500/60 hover:text-orange-400 hover:shadow-[0_0_15px_rgba(251,146,60,0.3)]'
+                      : 'hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-400 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+                  }`}
                 >
-                  {shortcut.label}
+                  +{amt >= 10000 ? `${amt / 10000}만` : `${amt / 1000}천`}
                 </Button>
               ))}
             </div>
+          </div>
 
-            {/* 전액삭제 / 전액출금 */}
-            <div className="grid grid-cols-2 gap-2">
+          {/* 전액출금 버튼 (출금 시에만) */}
+          {type === 'withdrawal' && selectedTarget && (
+            <div className="grid gap-2">
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                onClick={handleClearAmount}
-                className="bg-red-900/20 border-red-500 text-red-400 hover:bg-red-900/40"
+                onClick={handleFullWithdrawal}
+                className="w-full h-9 bg-red-900/20 border-red-500/50 text-red-400 hover:bg-red-900/40 hover:border-red-500"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                전액삭제
+                전액출금
               </Button>
-              {type === 'withdrawal' && selectedTarget && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleFullWithdrawal}
-                  className="bg-orange-900/20 border-orange-500 text-orange-400 hover:bg-orange-900/40"
-                >
-                  전액출금
-                </Button>
-              )}
             </div>
-          </div>
+          )}
 
           {/* 메모 */}
-          <div className="space-y-2">
-            <Label className="text-slate-300">메모</Label>
+          <div className="grid gap-2">
+            <Label htmlFor="force-transaction-memo">메모</Label>
             <Textarea
+              id="force-transaction-memo"
+              name="memo"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               placeholder="메모를 입력하세요 (선택사항)"
-              className="bg-slate-800 border-slate-700 text-white resize-none"
-              rows={3}
+              className="input-premium min-h-[80px]"
             />
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter>
           <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-            className="border-slate-600 hover:bg-slate-700 text-white"
-          >
-            취소
-          </Button>
-          <Button
+            type="button"
             onClick={handleSubmit}
             disabled={submitting || (!propSelectedTarget?.id && !selectedTargetId) || !amount || parseFloat(amount) <= 0}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+            className={`w-full ${type === 'deposit' ? 'btn-premium-warning' : 'btn-premium-danger'}`}
           >
-            {submitting ? '처리중...' : '실행'}
+            {submitting ? '처리 중...' : type === 'deposit' ? '강제 입금' : '강제 출금'}
           </Button>
         </DialogFooter>
       </DialogContent>

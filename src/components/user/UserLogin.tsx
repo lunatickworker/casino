@@ -21,6 +21,19 @@ interface Bank {
   bank_name: string;
 }
 
+// UUID 생성 헬퍼 함수
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback UUID 생성
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export function UserLogin({ onLoginSuccess }: UserLoginProps) {
   const [activeTab, setActiveTab] = useState("login");
   
@@ -172,7 +185,7 @@ export function UserLogin({ onLoginSuccess }: UserLoginProps) {
       // 로그인 성공 시 세션 생성
       const sessionData = {
         user_id: user.id,
-        session_token: crypto.randomUUID(),
+        session_token: generateUUID(),
         ip_address: null,
         device_info: {
           userAgent: navigator.userAgent,

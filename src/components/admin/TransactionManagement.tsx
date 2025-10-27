@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { 
   CreditCard, TrendingUp, TrendingDown, Clock, CheckCircle, XCircle, 
-  AlertTriangle, Banknote, Users, Plus, Search, Trash2, RefreshCw
+  AlertTriangle, Banknote, Users, Plus, Search, Trash2, RefreshCw, Check, ChevronsUpDown, Gift, MinusCircle
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -84,18 +84,18 @@ export function TransactionManagement({ user }: TransactionManagementProps) {
   // 회원 검색 Popover 상태
   const [userSearchOpen, setUserSearchOpen] = useState(false);
 
-  // 금액 단축 버튼 값들
+  // 금액 단축 버튼 값들 (포인트 모달과 동일하게)
   const amountShortcuts = [
-    { label: '1천', value: 1000 },
-    { label: '3천', value: 3000 },
-    { label: '5천', value: 5000 },
-    { label: '1만', value: 10000 },
-    { label: '3만', value: 30000 },
-    { label: '5만', value: 50000 },
-    { label: '100만', value: 1000000 },
-    { label: '300만', value: 3000000 },
-    { label: '500만', value: 5000000 },
-    { label: '1000만', value: 10000000 }
+    1000,
+    3000, 
+    5000,
+    10000,
+    30000,
+    50000,
+    100000,
+    300000,
+    500000,
+    1000000
   ];
 
   // URL 해시 변경 감지하여 탭 업데이트
@@ -992,8 +992,10 @@ export function TransactionManagement({ user }: TransactionManagementProps) {
 
               {actionDialog.action === 'reject' && (
                 <div className="space-y-2">
-                  <Label className="text-slate-300">거절 사유</Label>
+                  <Label htmlFor="transaction-reject-reason" className="text-slate-300">거절 사유</Label>
                   <Textarea
+                    id="transaction-reject-reason"
+                    name="reject_reason"
                     value={actionDialog.memo}
                     onChange={(e) => setActionDialog({ ...actionDialog, memo: e.target.value })}
                     placeholder="거절 사유를 입력해주세요..."
@@ -1026,72 +1028,91 @@ export function TransactionManagement({ user }: TransactionManagementProps) {
 
       {/* 강제 입출금 Dialog */}
       <Dialog open={forceDialog.open} onOpenChange={(open) => setForceDialog({ ...forceDialog, open })}>
-        <DialogContent className="bg-slate-900 border-slate-700 max-w-2xl">
+        <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
-            <DialogTitle className="text-white">관리자 강제 입출금</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogTitle className="flex items-center gap-2">
+              {forceDialog.type === 'deposit' ? (
+                <>
+                  <Gift className="h-5 w-5 text-emerald-500" />
+                  강제 입금
+                </>
+              ) : (
+                <>
+                  <MinusCircle className="h-5 w-5 text-rose-500" />
+                  강제 출금
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
               회원의 잔액을 직접 조정합니다.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-slate-300">거래 유형</Label>
+          <div className="grid gap-5 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="force-dialog-type">거래 유형</Label>
               <Select value={forceDialog.type} onValueChange={(value: 'deposit' | 'withdrawal') => setForceDialog({ ...forceDialog, type: value })}>
-                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                <SelectTrigger id="force-dialog-type" className="input-premium h-10">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-slate-800 border-slate-700">
                   <SelectItem value="deposit">입금</SelectItem>
                   <SelectItem value="withdrawal">출금</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-slate-300">회원 선택</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="force-dialog-user-search">회원 선택</Label>
               <Popover open={userSearchOpen} onOpenChange={setUserSearchOpen}>
                 <PopoverTrigger asChild>
                   <Button
+                    id="force-dialog-user-search"
                     variant="outline"
                     role="combobox"
                     aria-expanded={userSearchOpen}
-                    className="w-full justify-between bg-slate-800 border-slate-700 text-white hover:bg-slate-700"
+                    className="justify-between input-premium h-10"
                   >
                     {forceDialog.userId
-                      ? users.find(u => u.id === forceDialog.userId)?.nickname + 
-                        ` (${users.find(u => u.id === forceDialog.userId)?.username})`
-                      : "회원을 선택하세요"}
-                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      ? users.find(u => u.id === forceDialog.userId)?.username + 
+                        ` (${users.find(u => u.id === forceDialog.userId)?.nickname})` +
+                        ` - ${parseFloat(users.find(u => u.id === forceDialog.userId)?.balance?.toString() || '0').toLocaleString()}원`
+                      : "아이디, 닉네임으로 검색"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[500px] p-0 bg-slate-800 border-slate-700">
+                <PopoverContent className="w-[480px] p-0 bg-slate-800 border-slate-700">
                   <Command className="bg-slate-800">
                     <CommandInput 
-                      placeholder="회원 검색..." 
-                      className="text-white"
+                      placeholder="아이디, 닉네임으로 검색..." 
+                      className="h-9 text-slate-100 placeholder:text-slate-500"
                     />
                     <CommandList>
-                      <CommandEmpty className="text-slate-400 py-6 text-center">회원을 찾을 수 없습니다.</CommandEmpty>
-                      <CommandGroup>
+                      <CommandEmpty className="text-slate-400 py-6 text-center text-sm">회원을 찾을 수 없습니다.</CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
                         {users.map(u => (
                           <CommandItem
                             key={u.id}
-                            value={`${u.nickname} ${u.username} ${u.id}`}
+                            value={`${u.username} ${u.nickname}`}
                             onSelect={() => {
                               setForceDialog({ ...forceDialog, userId: u.id });
                               setUserSearchOpen(false);
                             }}
-                            className="text-white hover:bg-slate-700 cursor-pointer"
+                            className="flex items-center justify-between cursor-pointer hover:bg-slate-700/50 text-slate-300"
                           >
-                            <div className="flex flex-col w-full">
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium">{u.nickname}</span>
-                                <span className="text-sm text-slate-400">({u.username})</span>
+                            <div className="flex items-center gap-2">
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  forceDialog.userId === u.id ? `opacity-100 ${forceDialog.type === 'deposit' ? 'text-emerald-500' : 'text-rose-500'}` : "opacity-0"
+                                }`}
+                              />
+                              <div>
+                                <div className="font-medium text-slate-100">{u.username}</div>
+                                <div className="text-xs text-slate-400">{u.nickname}</div>
                               </div>
-                              <div className="text-sm text-cyan-400 mt-1">
-                                잔액: ₩{parseFloat(u.balance?.toString() || '0').toLocaleString()}
-                              </div>
+                            </div>
+                            <div className="text-sm">
+                              <span className="text-cyan-400 font-mono">{parseFloat(u.balance?.toString() || '0').toLocaleString()}원</span>
                             </div>
                           </CommandItem>
                         ))}
@@ -1109,21 +1130,38 @@ export function TransactionManagement({ user }: TransactionManagementProps) {
                 <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-slate-400">선택된 회원</span>
-                    <Badge className="bg-cyan-600 text-white">{selectedUser.nickname}</Badge>
+                    <span className="text-cyan-400 font-medium">{selectedUser.nickname}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-400">현재 보유금</span>
-                    <span className="text-lg font-mono text-cyan-400">
-                      ₩{parseFloat(selectedUser.balance?.toString() || '0').toLocaleString()}
+                    <span className="font-mono text-cyan-400">
+                      {parseFloat(selectedUser.balance?.toString() || '0').toLocaleString()}원
                     </span>
                   </div>
                 </div>
               ) : null;
             })()}
 
-            <div className="space-y-2">
-              <Label className="text-slate-300">금액</Label>
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="force-dialog-amount">금액</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setForceDialog({ ...forceDialog, amount: '0' })}
+                  className={`h-7 px-2 text-xs text-slate-400 ${
+                    forceDialog.type === 'deposit' 
+                      ? 'hover:text-orange-400 hover:bg-orange-500/10' 
+                      : 'hover:text-red-400 hover:bg-red-500/10'
+                  }`}
+                >
+                  전체삭제
+                </Button>
+              </div>
               <Input
+                id="force-dialog-amount"
+                name="amount"
                 type="number"
                 value={forceDialog.amount}
                 onChange={(e) => {
@@ -1135,7 +1173,7 @@ export function TransactionManagement({ user }: TransactionManagementProps) {
                     if (selectedUser) {
                       const userBalance = parseFloat(selectedUser.balance?.toString() || '0');
                       if (inputAmount > userBalance) {
-                        toast.error(`출금 금액이 보유금(₩${userBalance.toLocaleString()})을 초과할 수 없습니다.`);
+                        toast.error(`출금 금액이 보유금(${userBalance.toLocaleString()}원)을 초과할 수 없습니다.`);
                         setForceDialog({ ...forceDialog, amount: userBalance.toString() });
                         return;
                       }
@@ -1145,20 +1183,22 @@ export function TransactionManagement({ user }: TransactionManagementProps) {
                   setForceDialog({ ...forceDialog, amount: e.target.value });
                 }}
                 placeholder="금액을 입력하세요"
-                className="bg-slate-800 border-slate-700 text-white"
+                className="input-premium"
               />
-              
-              {/* 금액 단축 버튼 */}
-              <div className="grid grid-cols-5 gap-2 pt-2">
-                {amountShortcuts.map((shortcut) => (
+            </div>
+
+            {/* 금액 단축 버튼 */}
+            <div className="grid gap-2">
+              <Label className="text-slate-400 text-sm">단축 입력 (누적 더하기)</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {amountShortcuts.map((amt) => (
                   <Button
-                    key={shortcut.value}
+                    key={amt}
                     type="button"
                     variant="outline"
-                    size="sm"
                     onClick={() => {
                       const currentAmount = parseFloat(forceDialog.amount || '0');
-                      const newAmount = currentAmount + shortcut.value;
+                      const newAmount = currentAmount + amt;
                       
                       // 출금 타입이고 회원이 선택된 경우 보유금 검증
                       if (forceDialog.type === 'withdrawal' && forceDialog.userId) {
@@ -1166,7 +1206,7 @@ export function TransactionManagement({ user }: TransactionManagementProps) {
                         if (selectedUser) {
                           const userBalance = parseFloat(selectedUser.balance?.toString() || '0');
                           if (newAmount > userBalance) {
-                            toast.error(`출금 금액이 보유금(₩${userBalance.toLocaleString()})을 초과할 수 없습니다.`);
+                            toast.error(`출금 금액이 보유금(${userBalance.toLocaleString()}원)을 초과할 수 없습니다.`);
                             setForceDialog({ ...forceDialog, amount: userBalance.toString() });
                             return;
                           }
@@ -1178,75 +1218,61 @@ export function TransactionManagement({ user }: TransactionManagementProps) {
                         amount: newAmount.toString() 
                       });
                     }}
-                    className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600 text-xs"
+                    className={`h-9 transition-all bg-slate-800/50 border-slate-700 text-slate-300 ${
+                      forceDialog.type === 'deposit'
+                        ? 'hover:bg-orange-500/20 hover:border-orange-500/60 hover:text-orange-400 hover:shadow-[0_0_15px_rgba(251,146,60,0.3)]'
+                        : 'hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-400 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+                    }`}
                   >
-                    {shortcut.label}
+                    +{amt >= 10000 ? `${amt / 10000}만` : `${amt / 1000}천`}
                   </Button>
                 ))}
               </div>
+            </div>
 
-              {/* 전체삭제 / 전체출금 버튼 */}
-              <div className="flex gap-2 pt-2">
+            {/* 전액출금 버튼 (출금 시에만) */}
+            {forceDialog.type === 'withdrawal' && forceDialog.userId && (
+              <div className="grid gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  onClick={() => setForceDialog({ ...forceDialog, amount: '0' })}
-                  className="flex-1 bg-red-900/20 border-red-500 text-red-400 hover:bg-red-900/40"
+                  onClick={() => {
+                    const selectedUser = users.find(u => u.id === forceDialog.userId);
+                    if (selectedUser) {
+                      const balance = parseFloat(selectedUser.balance?.toString() || '0');
+                      setForceDialog({ ...forceDialog, amount: balance.toString() });
+                    }
+                  }}
+                  className="w-full h-9 bg-red-900/20 border-red-500/50 text-red-400 hover:bg-red-900/40 hover:border-red-500"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  전체삭제
+                  전액출금
                 </Button>
-                {forceDialog.type === 'withdrawal' && forceDialog.userId && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const selectedUser = users.find(u => u.id === forceDialog.userId);
-                      if (selectedUser) {
-                        const balance = parseFloat(selectedUser.balance?.toString() || '0');
-                        setForceDialog({ ...forceDialog, amount: balance.toString() });
-                      }
-                    }}
-                    className="flex-1 bg-orange-900/20 border-orange-500 text-orange-400 hover:bg-orange-900/40"
-                  >
-                    <TrendingDown className="h-4 w-4 mr-2" />
-                    전체출금
-                  </Button>
-                )}
               </div>
-            </div>
+            )}
 
-            <div className="space-y-2">
-              <Label className="text-slate-300">메모</Label>
+            {/* 메모 */}
+            <div className="grid gap-2">
+              <Label htmlFor="force-dialog-memo">메모</Label>
               <Textarea
+                id="force-dialog-memo"
+                name="memo"
                 value={forceDialog.memo}
                 onChange={(e) => setForceDialog({ ...forceDialog, memo: e.target.value })}
                 placeholder="메모를 입력하세요 (선택사항)"
-                className="bg-slate-800 border-slate-700 text-white"
-                rows={2}
+                className="input-premium min-h-[80px]"
               />
             </div>
           </div>
 
           <DialogFooter>
             <Button 
-              variant="outline" 
-              onClick={() => {
-                setForceDialog({ open: false, type: 'deposit', userId: '', amount: '', memo: '' });
-                setUserSearchOpen(false);
-              }}
-              disabled={refreshing}
-            >
-              취소
-            </Button>
-            <Button 
+              type="button"
               onClick={handleForceTransaction}
-              disabled={refreshing || !forceDialog.userId || !forceDialog.amount}
-              className="bg-purple-600 hover:bg-purple-700"
+              disabled={refreshing || !forceDialog.userId || !forceDialog.amount || parseFloat(forceDialog.amount) <= 0}
+              className={`w-full ${forceDialog.type === 'deposit' ? 'btn-premium-warning' : 'btn-premium-danger'}`}
             >
-              실행
+              {refreshing ? '처리 중...' : forceDialog.type === 'deposit' ? '강제 입금' : '강제 출금'}
             </Button>
           </DialogFooter>
         </DialogContent>

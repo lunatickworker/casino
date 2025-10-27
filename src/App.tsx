@@ -29,10 +29,10 @@ function AppContent() {
 
   const currentPath = window.location.pathname;
   
-  // 루트 경로는 관리자 페이지로 리다이렉트 (즉시 처리)
+  // 루트 경로는 사용자 페이지로 리다이렉트 (즉시 처리)
   if (currentPath === '/' || currentPath === '') {
-    window.history.replaceState({}, '', '/admin');
-    window.location.pathname = '/admin';
+    window.history.replaceState({}, '', '/user');
+    window.location.pathname = '/user';
     return null;
   }
 
