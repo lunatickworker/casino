@@ -79,20 +79,9 @@ export default defineConfig({
             return 'react-core';
           }
           
-          // React Router
-          if (id.includes('node_modules/react-router') || 
-              id.includes('node_modules/@remix-run')) {
-            return 'react-router';
-          }
-          
-          // Radix UI 컴포넌트들
+          // Radix UI - 전체 통합 (분할하지 않음)
           if (id.includes('node_modules/@radix-ui/')) {
             return 'radix-ui';
-          }
-          
-          // Lucide 아이콘
-          if (id.includes('node_modules/lucide-react/')) {
-            return 'lucide-icons';
           }
           
           // Recharts
@@ -109,83 +98,20 @@ export default defineConfig({
             return 'supabase';
           }
           
+          // Lucide 아이콘
+          if (id.includes('node_modules/lucide-react/')) {
+            return 'lucide-icons';
+          }
+          
           // 기타 vendor 라이브러리들
           if (id.includes('node_modules/')) {
             return 'vendor';
           }
-          
-          // 관리자 컴포넌트들 - 핵심
-          if (id.includes('/components/admin/Dashboard') || 
-              id.includes('/components/admin/AdminLogin')) {
-            return 'admin-core';
-          }
-          
-          // 관리자 컴포넌트들 - 사용자 관리
-          if (id.includes('/components/admin/UserManagement') || 
-              id.includes('/components/admin/UserDetailModal') || 
-              id.includes('/components/admin/PartnerManagement') || 
-              id.includes('/components/admin/PartnerCreation')) {
-            return 'admin-users';
-          }
-          
-          // 관리자 컴포넌트들 - 거래 관리
-          if (id.includes('/components/admin/TransactionManagement') || 
-              id.includes('/components/admin/TransactionApprovalManager') || 
-              id.includes('/components/admin/PartnerTransactions') || 
-              id.includes('/components/admin/ForceTransactionModal')) {
-            return 'admin-transactions';
-          }
-          
-          // 관리자 컴포넌트들 - 베팅 및 게임
-          if (id.includes('/components/admin/BettingManagement') || 
-              id.includes('/components/admin/BettingHistory') || 
-              id.includes('/components/admin/EnhancedGameManagement') || 
-              id.includes('/components/admin/BettingHistorySync')) {
-            return 'admin-betting';
-          }
-          
-          // 관리자 컴포넌트들 - 시스템
-          if (id.includes('/components/admin/SystemSettings') || 
-              id.includes('/components/admin/MenuManagement') || 
-              id.includes('/components/admin/BalanceSyncManager') || 
-              id.includes('/components/admin/AutoSyncMonitor') || 
-              id.includes('/components/admin/ApiTester')) {
-            return 'admin-system';
-          }
-          
-          // 관리자 컴포넌트들 - 기타
-          if (id.includes('/components/admin/')) {
-            return 'admin-others';
-          }
-          
-          // 사용자 컴포넌트들
-          if (id.includes('/components/user/')) {
-            return 'user-components';
-          }
-          
-          // 공통 컴포넌트들
-          if (id.includes('/components/common/')) {
-            return 'common-components';
-          }
-          
-          // UI 컴포넌트들
-          if (id.includes('/components/ui/')) {
-            return 'ui-components';
-          }
-          
-          // Contexts
-          if (id.includes('/contexts/')) {
-            return 'contexts';
-          }
-          
-          // Hooks와 Utils
-          if (id.includes('/hooks/') || id.includes('/lib/') || id.includes('/utils/')) {
-            return 'utils';
-          }
         },
       },
     },
-    chunkSizeWarningLimit: 600,
+    // 청크 크기 경고 한도를 1000kB로 상향 (500kB -> 1000kB)
+    chunkSizeWarningLimit: 1000,
     sourcemap: false,
   },
   server: {

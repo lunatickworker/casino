@@ -877,11 +877,11 @@ async function generateGameLaunchUrl(
         hint: sessionError.hint
       });
       
-      // 30초 중복 방지 에러인 경우 사용자에게 명확한 메시지 전달
+      // 30초 중복 방지 에러인 경우 사용자에게 친절한 메시지 전달
       if (sessionError.message && sessionError.message.includes('30초')) {
         return {
           success: false,
-          error: sessionError.message,
+          error: '잠시 후에 다시 시도하세요. (게임 실행 대기 시간)',
           sessionId: null
         };
       }

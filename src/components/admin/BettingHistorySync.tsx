@@ -8,6 +8,119 @@ interface BettingHistorySyncProps {
   user: Partner;
 }
 
+/**
+ * ✅ 4분 이상 베팅이 없는 active 세션을 ended로 변경
+ */
+const checkAndEndInactiveSessions = async () => {
+  try {
+    console.log('🔍 [SESSION-CHECK] 무활동 세션 확인 시작');
+
+    // 1. 모든 active 세션의 마지막 베팅 시간 확인
+    const { data: activeSessions, error: sessionError } = await supabase
+      .from('game_launch_sessions')
+      .select(`
+        id,
+        user_id,
+        game_id,
+        launched_at,
+        users!inner (
+          username
+        )
+      `)
+      .eq('status', 'active');
+
+    if (sessionError) {
+      console.error('❌ [SESSION-CHECK] 세션 조회 오류:', sessionError);
+      return;
+    }
+
+    if (!activeSessions || activeSessions.length === 0) {
+      console.log('ℹ️ [SESSION-CHECK] active 세션 없음');
+      return;
+    }
+
+    console.log(`📊 [SESSION-CHECK] active 세션 ${activeSessions.length}개 확인`);
+
+    // 2. 각 세션의 마지막 베팅 시간 확인
+    const now = new Date();
+    const fourMinutesAgo = new Date(now.getTime() - 4 * 60 * 1000);
+    let endedCount = 0;
+
+    for (const session of activeSessions) {
+      try {
+        // 해당 세션의 마지막 베팅 기록 조회
+        const { data: lastBetting, error: bettingError } = await supabase
+          .from('game_records')
+          .select('played_at')
+          .eq('user_id', session.user_id)
+          .eq('game_id', session.game_id)
+          .order('played_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (bettingError) {
+          console.error(`❌ [SESSION-CHECK] 베팅 기록 조회 오류 (세션 ${session.id}):`, bettingError);
+          continue;
+        }
+
+        // 3. 마지막 베팅이 4분 이상 전이면 세션 종료
+        if (lastBetting) {
+          const lastBettingTime = new Date(lastBetting.played_at);
+          
+          if (lastBettingTime < fourMinutesAgo) {
+            // 세션 종료
+            const { error: updateError } = await supabase
+              .from('game_launch_sessions')
+              .update({
+                status: 'ended',
+                ended_at: now.toISOString()
+              })
+              .eq('id', session.id);
+
+            if (updateError) {
+              console.error(`❌ [SESSION-CHECK] 세션 종료 오류 (세션 ${session.id}):`, updateError);
+            } else {
+              endedCount++;
+              console.log(`🔚 [SESSION-CHECK] 세션 종료: user=${session.users.username}, 마지막 베팅=${lastBettingTime.toISOString()}`);
+            }
+          }
+        } else {
+          // 베팅 기록이 없으면 launched_at 기준으로 확인
+          const launchedAt = new Date(session.launched_at);
+          
+          if (launchedAt < fourMinutesAgo) {
+            const { error: updateError } = await supabase
+              .from('game_launch_sessions')
+              .update({
+                status: 'ended',
+                ended_at: now.toISOString()
+              })
+              .eq('id', session.id);
+
+            if (updateError) {
+              console.error(`❌ [SESSION-CHECK] 세션 종료 오류 (세션 ${session.id}):`, updateError);
+            } else {
+              endedCount++;
+              console.log(`🔚 [SESSION-CHECK] 세션 종료 (베팅 없음): user=${session.users.username}, launched=${launchedAt.toISOString()}`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`❌ [SESSION-CHECK] 세션 처리 오류 (세션 ${session.id}):`, err);
+      }
+    }
+
+    if (endedCount > 0) {
+      console.log(`✅ [SESSION-CHECK] ${endedCount}개 세션 종료 완료`);
+    } else {
+      console.log(`ℹ️ [SESSION-CHECK] 종료할 세션 없음 (모든 세션이 4분 이내 활동 중)`);
+    }
+
+  } catch (error) {
+    console.error('❌ [SESSION-CHECK] 무활동 세션 확인 오류:', error);
+  }
+};
+
 // ✅ processSingleOpcode를 모듈 레벨로 이동하여 forceSyncBettingHistory에서도 사용 가능
 const processSingleOpcode = async (
   opcode: string,
@@ -188,6 +301,9 @@ const processSingleOpcode = async (
       } else {
         console.warn(`   ⚠️ DB에서 데이터를 찾을 수 없습니다! partner_id: ${partnerId}`);
       }
+      
+      // ✅ 베팅 기록 저장 후 세션 상태 확인 및 업데이트
+      await checkAndEndInactiveSessions();
     }
 
   } catch (error) {
@@ -238,9 +354,11 @@ export async function forceSyncBettingHistory(user: Partner) {
  * - 30초마다 historyindex API 호출
  * - 개별 INSERT만 사용 (배치 포기)
  * - 중복 에러는 조용히 무시
+ * - 베팅 기록 저장 후 4분 무활동 세션 자동 종료
  */
 export function BettingHistorySync({ user }: BettingHistorySyncProps) {
   const isProcessingRef = useRef(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const syncBettingHistory = async () => {
     if (isProcessingRef.current) {
@@ -250,28 +368,11 @@ export function BettingHistorySync({ user }: BettingHistorySyncProps) {
     try {
       isProcessingRef.current = true;
 
-      // ✅ 활성 세션 확인: active 세션이 있을 때만 동기화
-      const { data: activeSessions, error: sessionError } = await supabase
-        .from('game_launch_sessions')
-        .select('id')
-        .eq('status', 'active')
-        .limit(1);
-
-      if (sessionError) {
-        console.error('❌ [BETTING-SYNC] 세션 확인 오류:', sessionError);
-        return;
-      }
-
-      if (!activeSessions || activeSessions.length === 0) {
-        console.log('⏸️ [BETTING-SYNC] 활성 세션 없음 - 동기화 건너뜀');
-        return;
-      }
-
       const now = new Date();
       const year = now.getFullYear().toString();
       const month = (now.getMonth() + 1).toString();
 
-      console.log('🎲 [BETTING-SYNC] 시작 (활성 세션 있음)', { year, month });
+      console.log('🎲 [BETTING-SYNC] 시작', { year, month });
 
       const opcodeInfo = await opcodeHelper.getAdminOpcode(user);
       
@@ -305,17 +406,27 @@ export function BettingHistorySync({ user }: BettingHistorySyncProps) {
   useEffect(() => {
     console.log('🎯 [BETTING-SYNC] 자동 동기화 시작');
 
+    // 기존 interval이 있으면 제거
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
     // 즉시 1회 실행
     syncBettingHistory();
 
     // 30초마다 실행
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
+      console.log('⏰ [BETTING-SYNC] 30초 타이머 실행:', new Date().toISOString());
       syncBettingHistory();
     }, 30000);
 
     return () => {
       console.log('🛑 [BETTING-SYNC] 자동 동기화 중지');
-      clearInterval(interval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
   }, []); // ✅ 빈 배열로 변경하여 한 번만 실행
 
