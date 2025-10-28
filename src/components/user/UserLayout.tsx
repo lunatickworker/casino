@@ -5,7 +5,6 @@ import { supabase } from "../../lib/supabase";
 import { toast } from "sonner@2.0.3";
 import { Shield } from "lucide-react";
 import { Button } from "../ui/button";
-import * as investApi from "../../lib/investApi";
 
 interface UserLayoutProps {
   user: any;
@@ -19,6 +18,30 @@ export function UserLayout({ user, currentRoute, onRouteChange, onLogout, childr
   const sessionMonitorsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
   const lastBettingUpdateRef = useRef<Map<number, number>>(new Map());
   const lastTxidRef = useRef<Map<number, number>>(new Map());
+
+  // =====================================================
+  // 게임창 강제 종료 함수 등록
+  // =====================================================
+  useEffect(() => {
+    // 게임창 강제 종료 함수
+    (window as any).forceCloseGameWindow = (sessionId: number) => {
+      const gameWindows = (window as any).gameWindows as Map<number, Window>;
+      const gameWindow = gameWindows?.get(sessionId);
+      
+      if (gameWindow && !gameWindow.closed) {
+        gameWindow.close();
+        gameWindows.delete(sessionId);
+        console.log('🔴 게임창 강제 종료:', sessionId);
+        toast.error('관리자에 의해 게임이 종료되었습니다.');
+        return true;
+      }
+      return false;
+    };
+
+    return () => {
+      delete (window as any).forceCloseGameWindow;
+    };
+  }, []);
 
   // =====================================================
   // 모든 외부 API 호출 제거 - Realtime Subscription만 사용
@@ -55,13 +78,26 @@ export function UserLayout({ user, currentRoute, onRouteChange, onLogout, childr
             const newSession = payload.new as any;
             const oldSession = payload.old as any;
             
-            // 1. 세션이 강제종료된 경우 (active → ended)
-            if (oldSession?.status === 'active' && newSession.status === 'ended') {
-              console.log('🛑 [UserLayout] 세션 강제종료 감지! 모니터링 중지:', newSession.id);
+            // 1. 세션이 강제종료된 경우 (active → ended, force_ended, auto_ended)
+            if (oldSession?.status === 'active' && 
+                (newSession.status === 'ended' || newSession.status === 'force_ended' || newSession.status === 'auto_ended')) {
+              console.log('🛑 [UserLayout] 세션 종료 감지! status:', newSession.status, 'sessionId:', newSession.id);
               
+              // 게임창 강제로 닫기
+              const closed = (window as any).forceCloseGameWindow?.(newSession.id);
+              
+              if (closed) {
+                if (newSession.status === 'force_ended') {
+                  toast.error('관리자에 의해 게임이 종료되었습니다.');
+                } else if (newSession.status === 'auto_ended') {
+                  toast.error('4분간 베팅이 없어 게임이 자동 종료되었습니다.');
+                }
+              }
+              
+              // 모니터링 중지
               const existingInterval = sessionMonitorsRef.current.get(newSession.id);
               if (existingInterval) {
-                console.log(`🧹 [UserLayout] 세션 ${newSession.id} 모니터 정리 (강제종료)`);
+                console.log(`🧹 [UserLayout] 세션 ${newSession.id} 모니터 정리 (${newSession.status})`);
                 clearInterval(existingInterval);
                 sessionMonitorsRef.current.delete(newSession.id);
                 lastBettingUpdateRef.current.delete(newSession.id);

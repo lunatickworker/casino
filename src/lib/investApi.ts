@@ -1014,15 +1014,18 @@ export function extractBalanceFromResponse(response: any, username?: string): nu
     }
 
     try {
-      // 직접 잔고 값이 있는 경우
-      if (typeof response.balance === 'number') {
-        return response.balance;
+      // 직접 잔고 값이 있는 경우 (숫자 또는 문자열)
+      if (response.balance !== undefined && response.balance !== null) {
+        const parsed = parseFloat(response.balance);
+        if (!isNaN(parsed)) return parsed;
       }
-      if (typeof response.amount === 'number') {
-        return response.amount;
+      if (response.amount !== undefined && response.amount !== null) {
+        const parsed = parseFloat(response.amount);
+        if (!isNaN(parsed)) return parsed;
       }
-      if (typeof response.current_balance === 'number') {
-        return response.current_balance;
+      if (response.current_balance !== undefined && response.current_balance !== null) {
+        const parsed = parseFloat(response.current_balance);
+        if (!isNaN(parsed)) return parsed;
       }
     } catch (error) {
       console.error('❌ JSON 잔고 파싱 오류:', error);
@@ -1037,33 +1040,76 @@ export function extractBalanceFromResponse(response: any, username?: string): nu
         if (username) {
           try {
             const userBalance = response.DATA.find((user: any) => user?.username === username);
-            return userBalance?.balance || userBalance?.amount || userBalance?.current_balance || 0;
+            if (userBalance) {
+              if (userBalance.balance !== undefined && userBalance.balance !== null) {
+                const parsed = parseFloat(userBalance.balance);
+                if (!isNaN(parsed)) return parsed;
+              }
+              if (userBalance.amount !== undefined && userBalance.amount !== null) {
+                const parsed = parseFloat(userBalance.amount);
+                if (!isNaN(parsed)) return parsed;
+              }
+              if (userBalance.current_balance !== undefined && userBalance.current_balance !== null) {
+                const parsed = parseFloat(userBalance.current_balance);
+                if (!isNaN(parsed)) return parsed;
+              }
+            }
           } catch (findError) {
             console.warn('⚠️ 배열 검색 중 오류:', findError);
             return 0;
           }
+        } else if (response.DATA[0]) {
+          // username이 없으면 첫번째 항목
+          const firstItem = response.DATA[0];
+          if (firstItem.balance !== undefined && firstItem.balance !== null) {
+            const parsed = parseFloat(firstItem.balance);
+            if (!isNaN(parsed)) return parsed;
+          }
+          if (firstItem.amount !== undefined && firstItem.amount !== null) {
+            const parsed = parseFloat(firstItem.amount);
+            if (!isNaN(parsed)) return parsed;
+          }
+          if (firstItem.current_balance !== undefined && firstItem.current_balance !== null) {
+            const parsed = parseFloat(firstItem.current_balance);
+            if (!isNaN(parsed)) return parsed;
+          }
         }
-        return response.DATA[0]?.balance || response.DATA[0]?.amount || response.DATA[0]?.current_balance || 0;
       }
       
       // 객체인 경우
       if (typeof response.DATA === 'object') {
-        // 직접 잔고 정보가 있는 경우
-        if (typeof response.DATA.balance === 'number') {
-          return response.DATA.balance;
+        // 직접 잔고 정보가 있는 경우 (숫자 또는 문자열)
+        if (response.DATA.balance !== undefined && response.DATA.balance !== null) {
+          const parsed = parseFloat(response.DATA.balance);
+          if (!isNaN(parsed)) return parsed;
         }
-        if (typeof response.DATA.amount === 'number') {
-          return response.DATA.amount;
+        if (response.DATA.amount !== undefined && response.DATA.amount !== null) {
+          const parsed = parseFloat(response.DATA.amount);
+          if (!isNaN(parsed)) return parsed;
         }
-        if (typeof response.DATA.current_balance === 'number') {
-          return response.DATA.current_balance;
+        if (response.DATA.current_balance !== undefined && response.DATA.current_balance !== null) {
+          const parsed = parseFloat(response.DATA.current_balance);
+          if (!isNaN(parsed)) return parsed;
         }
         
         // users 배열이 있는 경우
         if (Array.isArray(response.DATA.users) && username) {
           try {
             const userBalance = response.DATA.users.find((user: any) => user?.username === username);
-            return userBalance?.balance || userBalance?.amount || userBalance?.current_balance || 0;
+            if (userBalance) {
+              if (userBalance.balance !== undefined && userBalance.balance !== null) {
+                const parsed = parseFloat(userBalance.balance);
+                if (!isNaN(parsed)) return parsed;
+              }
+              if (userBalance.amount !== undefined && userBalance.amount !== null) {
+                const parsed = parseFloat(userBalance.amount);
+                if (!isNaN(parsed)) return parsed;
+              }
+              if (userBalance.current_balance !== undefined && userBalance.current_balance !== null) {
+                const parsed = parseFloat(userBalance.current_balance);
+                if (!isNaN(parsed)) return parsed;
+              }
+            }
           } catch (findError) {
             console.warn('⚠️ users 배열 검색 중 오류:', findError);
             return 0;
@@ -1080,7 +1126,20 @@ export function extractBalanceFromResponse(response: any, username?: string): nu
     if (Array.isArray(response) && username) {
       try {
         const userBalance = response.find((user: any) => user?.username === username);
-        return userBalance?.balance || userBalance?.amount || userBalance?.current_balance || 0;
+        if (userBalance) {
+          if (userBalance.balance !== undefined && userBalance.balance !== null) {
+            const parsed = parseFloat(userBalance.balance);
+            if (!isNaN(parsed)) return parsed;
+          }
+          if (userBalance.amount !== undefined && userBalance.amount !== null) {
+            const parsed = parseFloat(userBalance.amount);
+            if (!isNaN(parsed)) return parsed;
+          }
+          if (userBalance.current_balance !== undefined && userBalance.current_balance !== null) {
+            const parsed = parseFloat(userBalance.current_balance);
+            if (!isNaN(parsed)) return parsed;
+          }
+        }
       } catch (findError) {
         console.warn('⚠️ 직접 배열 검색 중 오류:', findError);
         return 0;
@@ -1102,6 +1161,29 @@ export async function getUserBalance(opcode: string, username: string, token: st
     token,
     signature
   });
+}
+
+// 파트너의 API 설정 조회
+export async function getApiConfig(partnerId: string): Promise<{ opcode: string; secretKey: string; token: string }> {
+  const { data: partner, error } = await supabase
+    .from('partners')
+    .select('opcode, secret_key, api_token')
+    .eq('id', partnerId)
+    .single();
+
+  if (error || !partner) {
+    throw new Error('파트너 API 설정을 찾을 수 없습니다.');
+  }
+
+  if (!partner.opcode || !partner.secret_key || !partner.api_token) {
+    throw new Error('파트너 API 설정이 불완전합니다.');
+  }
+
+  return {
+    opcode: partner.opcode,
+    secretKey: partner.secret_key,
+    token: partner.api_token
+  };
 }
 
 // 재시도 로직이 포함된 API 호출 함수
@@ -1208,6 +1290,10 @@ export const investApi = {
   launchGame,
   getGameHistory,
   getGameDetail,
+  getUserBalance,
+  getApiConfig,
+  depositBalance,
+  withdrawBalance,
   generateSignature,
   createSignature: generateSignature, // 별칭 추가
   callInvestApi,

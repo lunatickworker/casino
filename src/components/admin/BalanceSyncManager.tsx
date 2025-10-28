@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import * as investApi from '../../lib/investApi';
+import { getInfo, getAllAccountBalances } from '../../lib/investApi';
 import * as opcodeHelper from '../../lib/opcodeHelper';
 import { Partner } from '../../types';
 
@@ -82,7 +82,7 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
           // ========================================
           console.log('📡 [BalanceSync] GET /api/info 호출 (level 1)');
           
-          const apiResult = await investApi.getInfo(opcode, secretKey);
+          const apiResult = await getInfo(opcode, secretKey);
 
           if (apiResult.error) {
             console.error('❌ [BalanceSync] API 호출 실패:', apiResult.error);
@@ -127,7 +127,7 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
           // ========================================
           console.log('📡 [BalanceSync] PATCH /api/account/balance 호출 (level 2~7)');
           
-          const apiResult = await investApi.getAllAccountBalances(opcode, secretKey);
+          const apiResult = await getAllAccountBalances(opcode, secretKey);
 
           if (apiResult.error) {
             console.error('❌ [BalanceSync] API 호출 실패:', apiResult.error);

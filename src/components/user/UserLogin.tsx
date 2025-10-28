@@ -182,6 +182,25 @@ export function UserLogin({ onLoginSuccess }: UserLoginProps) {
         return;
       }
 
+      // 기기 타입 자동 감지
+      const ua = navigator.userAgent.toLowerCase();
+      let deviceType = 'PC';
+      
+      if (
+        ua.includes('mobile') || 
+        ua.includes('android') || 
+        ua.includes('iphone') ||
+        ua.includes('ipod') ||
+        ua.includes('blackberry') ||
+        ua.includes('windows phone') ||
+        ua.includes('iemobile') ||
+        ua.includes('opera mini') ||
+        ua.includes('ipad') ||
+        ua.includes('tablet')
+      ) {
+        deviceType = 'Mobile';
+      }
+
       // 로그인 성공 시 세션 생성
       const sessionData = {
         user_id: user.id,
@@ -190,7 +209,8 @@ export function UserLogin({ onLoginSuccess }: UserLoginProps) {
         device_info: {
           userAgent: navigator.userAgent,
           platform: navigator.platform,
-          language: navigator.language
+          language: navigator.language,
+          device: deviceType
         }
       };
 
@@ -202,12 +222,13 @@ export function UserLogin({ onLoginSuccess }: UserLoginProps) {
         console.error('세션 생성 오류:', sessionError);
       }
 
-      // 온라인 상태 업데이트
+      // 온라인 상태 및 기기 정보 업데이트
       await supabase
         .from('users')
         .update({ 
           is_online: true,
-          last_login_at: new Date().toISOString()
+          last_login_at: new Date().toISOString(),
+          device_info: sessionData.device_info
         })
         .eq('id', user.id);
 

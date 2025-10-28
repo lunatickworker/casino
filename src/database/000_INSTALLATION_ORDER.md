@@ -170,6 +170,7 @@
 289_fix_session_and_balance_update.sql    - 세션 활성화 및 타이머 수정 ⭐⭐⭐ (필수!)
 290_disable_game_records_rls.sql          - game_records RLS 비활성화 ⭐⭐⭐ (필수!)
 291_fix_balance_before_calculation.sql    - balance_before 계산 오류 수정 ⭐⭐⭐ (필수!)
+311_consolidate_session_management.sql    - session_timers 통합 제거 ⭐⭐⭐ (필수, 최신!)
 ```
 
 ### ❌ 사용하지 않는 파일
@@ -256,6 +257,7 @@
 293_auto_reactivate_session_on_betting.sql # 세션 자동 재활성화 (필수!)
 294_add_pgcrypto_extension.sql            # pgcrypto Extension (필수!)
 295_fix_partner_login.sql                 # partner_login 함수 수정 (필수!)
+311_consolidate_session_management.sql    # session_timers 통합 제거 (필수, 최신!)
 ```
 
 ---
@@ -422,5 +424,26 @@
 
 ---
 
-**마지막 업데이트**: 2025-10-19  
-**버전**: 최신 (291 balance_before 계산 오류 수정 추가)
+---
+
+### 7️⃣ session_timers 테이블 통합 제거 (최신!)
+
+**증상**:
+```
+⚠️ session_timers와 game_launch_sessions 테이블 중복
+⚠️ 복잡한 JOIN 쿼리
+⚠️ 데이터 동기화 문제 가능성
+```
+
+**해결**:
+1. `/database/311_consolidate_session_management.sql` 실행
+2. session_timers 테이블 완전 삭제
+3. game_launch_sessions만 사용하는 간소화된 세션 관리
+4. Cron 작업 재설정 필요
+
+**가이드**: `/database/311_README.md` (세션 관리 통합)
+
+---
+
+**마지막 업데이트**: 2025-01-XX  
+**버전**: 최신 (311 session_timers 통합 제거 추가)

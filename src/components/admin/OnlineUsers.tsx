@@ -15,7 +15,7 @@ import {
   AdminDialogTitle as DialogTitle,
 } from "./AdminDialog";
 import { MetricCard } from "./MetricCard";
-import * as investApi from "../../lib/investApi";
+import { investApi } from "../../lib/investApi";
 
 interface OnlineSession {
   session_id: string;
@@ -76,6 +76,8 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
             balance,
             vip_level,
             referrer_id,
+            ip_address,
+            device_info,
             partners!users_referrer_id_fkey (
               id,
               nickname
@@ -108,23 +110,106 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
       if (error) throw error;
 
       // 데이터 포맷팅
-      const formattedSessions: OnlineSession[] = (data || []).map((session: any) => ({
-        session_id: session.id,
-        user_id: session.users.id,
-        username: session.users.username,
-        nickname: session.users.nickname || session.users.username,
-        partner_nickname: session.users.partners?.nickname || '-',
-        game_name: session.games?.name || 'Unknown Game',
-        provider_name: session.games?.game_providers?.name || 'Unknown',
-        balance_before: session.balance_before || 0,
-        current_balance: session.users.balance || 0,
-        vip_level: session.users.vip_level || 0,
-        device_type: 'Web', // 기본값
-        ip_address: '-', // user_sessions에서 가져와야 함
-        location: '-',
-        launched_at: session.launched_at,
-        last_activity: session.last_activity_at || session.launched_at,
-      }));
+      const formattedSessions: OnlineSession[] = (data || []).map((session: any) => {
+        // device_info에서 기기 타입 추출 (더 정확한 감지)
+        let deviceType = 'PC';
+        let deviceName = 'Desktop';
+        
+        if (session.users.device_info) {
+          const deviceInfo = session.users.device_info;
+          
+          // 직접 device 필드가 있는 경우 최우선 적용
+          if (deviceInfo.device) {
+            deviceType = deviceInfo.device;
+          } else if (deviceInfo.userAgent) {
+            // userAgent 분석 - 모바일 우선 감지
+            const ua = deviceInfo.userAgent.toLowerCase();
+            
+            // 모바일 우선 감지 (더 정확한 패턴)
+            if (
+              ua.includes('mobile') || 
+              ua.includes('android') || 
+              ua.includes('iphone') ||
+              ua.includes('ipod') ||
+              ua.includes('blackberry') ||
+              ua.includes('windows phone') ||
+              ua.includes('iemobile') ||
+              ua.includes('opera mini')
+            ) {
+              deviceType = 'Mobile';
+              if (ua.includes('iphone')) deviceName = 'iPhone';
+              else if (ua.includes('android')) deviceName = 'Android';
+              else deviceName = 'Mobile';
+            }
+            // iPad 및 태블릿 감지
+            else if (ua.includes('ipad') || ua.includes('tablet')) {
+              deviceType = 'Mobile';
+              deviceName = ua.includes('ipad') ? 'iPad' : 'Tablet';
+            }
+            // PC - macintosh, windows, linux 등
+            else {
+              deviceType = 'PC';
+              if (ua.includes('macintosh') || ua.includes('mac os')) deviceName = 'Mac';
+              else if (ua.includes('windows')) deviceName = 'Windows';
+              else if (ua.includes('linux')) deviceName = 'Linux';
+              else deviceName = 'PC';
+            }
+          }
+          
+          // deviceName 필드가 있는 경우 우선 적용
+          if (deviceInfo.deviceName) {
+            deviceName = deviceInfo.deviceName;
+          }
+        }
+
+        // IP 주소 처리
+        const ipAddress = session.users.ip_address || '-';
+        
+        // IP 기반 간단한 통신사/지역 판별
+        let location = '알 수 없음';
+        if (ipAddress !== '-' && ipAddress.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+          const parts = ipAddress.split('.');
+          const firstOctet = parseInt(parts[0]);
+          const secondOctet = parseInt(parts[1]);
+          
+          // 한국 주요 통신사 IP 대역 (간단한 구분)
+          if (firstOctet === 211 || firstOctet === 210 || firstOctet === 175) {
+            location = 'KT';
+          } else if (firstOctet === 218 || firstOctet === 121) {
+            location = 'SKT';
+          } else if (firstOctet === 220 || firstOctet === 117) {
+            location = 'LG U+';
+          } else if (firstOctet === 106 || firstOctet === 112) {
+            location = '서울';
+          } else if (firstOctet >= 1 && firstOctet <= 126) {
+            location = '국내';
+          } else if (firstOctet >= 128 && firstOctet <= 191) {
+            location = '국내';
+          } else if (firstOctet >= 192 && firstOctet <= 223) {
+            location = '국내';
+          } else {
+            location = '기타';
+          }
+        }
+
+        return {
+          session_id: session.id,
+          user_id: session.users.id,
+          username: session.users.username,
+          nickname: session.users.nickname || session.users.username,
+          partner_nickname: session.users.partners?.nickname || '-',
+          game_name: session.games?.name || 'Unknown Game',
+          provider_name: session.games?.game_providers?.name || 'Unknown',
+          balance_before: session.balance_before || 0,
+          current_balance: session.users.balance || 0,
+          vip_level: session.users.vip_level || 0,
+          device_type: deviceType,
+          ip_address: ipAddress,
+          location: location,
+          launched_at: session.launched_at,
+          last_activity: session.last_activity_at || session.launched_at,
+        };
+      });
 
       setSessions(formattedSessions);
 
@@ -165,31 +250,63 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
     try {
       setSyncingBalance(session.user_id);
 
+      console.log('💰 [보유금 동기화] 시작:', {
+        user_id: session.user_id,
+        username: session.username,
+        nickname: session.nickname
+      });
+
       // API 호출하여 보유금 조회
       const apiConfig = await investApi.getApiConfig(user.id);
       const balanceResult = await investApi.getUserBalance(
         apiConfig.opcode,
         session.username,
         apiConfig.token,
-        apiConfig.secret_key
+        apiConfig.secretKey
       );
 
-      if (balanceResult && balanceResult.balance !== undefined) {
+      console.log('📡 [보유금 동기화] API 응답:', balanceResult);
+
+      if (balanceResult.error) {
+        console.error('❌ [보유금 동기화] API 오류:', balanceResult.error);
+        toast.error("보유금 조회에 실패했습니다");
+        return;
+      }
+
+      // extractBalanceFromResponse 함수를 사용하여 잔고 추출
+      const newBalance = investApi.extractBalanceFromResponse(balanceResult.data, session.username);
+      
+      console.log('💵 [보유금 동기화] 추출된 잔고:', newBalance);
+
+      if (newBalance >= 0) {
         // 보유금 업데이트
         const { error } = await supabase
           .from('users')
-          .update({ balance: balanceResult.balance })
+          .update({ 
+            balance: newBalance,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', session.user_id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ [보유금 동기화] DB 업데이트 오류:', error);
+          throw error;
+        }
 
-        toast.success(`${session.nickname}의 보유금이 동기화되었습니다`);
+        console.log('✅ [보유금 동기화] 완료:', {
+          user_id: session.user_id,
+          username: session.username,
+          new_balance: newBalance
+        });
+
+        toast.success(`${session.nickname}의 보유금이 ₩${newBalance.toLocaleString()}으로 동기화되었습니다`);
         loadOnlineSessions();
       } else {
+        console.warn('⚠️ [보유금 동기화] 잔고 추출 실패');
         toast.error("보유금 조회에 실패했습니다");
       }
     } catch (error: any) {
-      console.error("보유금 동기화 오류:", error);
+      console.error("❌ [보유금 동기화] 오류:", error);
       toast.error("보유금 동기화 중 오류가 발생했습니다");
     } finally {
       setSyncingBalance(null);
@@ -204,14 +321,20 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
       const { error } = await supabase
         .from('game_launch_sessions')
         .update({
-          status: 'ended',
+          status: 'force_ended',
           ended_at: new Date().toISOString()
         })
         .eq('id', selectedSession.session_id);
 
       if (error) throw error;
 
-      toast.success(`${selectedSession.nickname}의 세션이 종료되었습니다`);
+      console.log('🔴 관리자 강제 종료:', {
+        sessionId: selectedSession.session_id,
+        userId: selectedSession.user_id,
+        nickname: selectedSession.nickname
+      });
+
+      toast.success(`${selectedSession.nickname}의 게임이 강제 종료되었습니다`);
       setShowKickDialog(false);
       setSelectedSession(null);
       loadOnlineSessions();
@@ -282,38 +405,59 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
     0
   );
 
+  // 기기 아이콘 가져오기
+  const getDeviceIcon = (deviceType: string) => {
+    if (deviceType === 'Mobile') return Smartphone;
+    if (deviceType === 'Tablet') return Smartphone;
+    return Monitor;
+  };
+
   const columns = [
     {
       header: "사용자",
       cell: (session: OnlineSession) => (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span>{session.username}</span>
-            <Badge variant="outline" className="text-xs">
-              {session.nickname}
-            </Badge>
+        <div className="py-3">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="font-medium text-white">{session.username}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-400">{session.nickname}</span>
+              {session.vip_level > 0 && (
+                <Badge variant="default" className="text-[10px] px-1.5 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-500 border-0">
+                  VIP{session.vip_level}
+                </Badge>
+              )}
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground">
-            소속: {session.partner_nickname}
-          </span>
+        </div>
+      ),
+    },
+    {
+      header: "닉네임",
+      cell: (session: OnlineSession) => (
+        <div className="py-3">
+          <span className="text-slate-300">{session.nickname}</span>
         </div>
       ),
     },
     {
       header: "게임",
       cell: (session: OnlineSession) => (
-        <div className="flex flex-col gap-1">
-          <span className="text-sm">{session.game_name}</span>
-          <span className="text-xs text-muted-foreground">
-            {session.provider_name}
-          </span>
+        <div className="py-3">
+          <div className="flex flex-col items-center gap-1">
+            <span className="font-medium text-emerald-300">{session.game_name}</span>
+            <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
+              {session.provider_name}
+            </Badge>
+          </div>
         </div>
       ),
     },
     {
       header: "게임 시작금",
       cell: (session: OnlineSession) => (
-        <span>₩{session.balance_before.toLocaleString()}</span>
+        <div className="py-3">
+          <span className="font-medium text-slate-300">₩{session.balance_before.toLocaleString()}</span>
+        </div>
       ),
     },
     {
@@ -321,50 +465,68 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
       cell: (session: OnlineSession) => {
         const profit = session.current_balance - session.balance_before;
         return (
-          <div className="flex flex-col gap-1">
-            <span>₩{session.current_balance.toLocaleString()}</span>
-            <span className={`text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {profit >= 0 ? '+' : ''}{profit.toLocaleString()}
-            </span>
+          <div className="py-3">
+            <div className="flex flex-col items-center gap-1">
+              <span className="font-medium text-white">₩{session.current_balance.toLocaleString()}</span>
+              <span className={`text-xs font-medium ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {profit >= 0 ? '+' : ''}₩{Math.abs(profit).toLocaleString()}
+              </span>
+            </div>
           </div>
         );
       },
     },
     {
-      header: "접속 정보",
-      cell: (session: OnlineSession) => (
-        <div className="flex flex-col gap-1 text-xs">
-          <div className="flex items-center gap-1">
-            <MapPin className="h-3 w-3" />
-            <span>{session.location}</span>
+      header: "접속경로",
+      cell: (session: OnlineSession) => {
+        const DeviceIcon = getDeviceIcon(session.device_type);
+        return (
+          <div className="py-3">
+            <div className="flex items-center justify-center gap-1.5">
+              <DeviceIcon className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+              <span className="text-sm text-purple-300">{session.device_type}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Smartphone className="h-3 w-3" />
-            <span>{session.ip_address}</span>
+        );
+      },
+    },
+    {
+      header: "IP 주소",
+      cell: (session: OnlineSession) => (
+        <div className="py-3">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-xs font-mono text-cyan-300">{session.ip_address}</span>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-cyan-500/10 border-cyan-500/30 text-cyan-400">
+              {session.location}
+            </Badge>
           </div>
         </div>
       ),
     },
     {
-      header: "세션 시간",
+      header: "접속 시간",
       cell: (session: OnlineSession) => (
-        <div className="flex items-center gap-1 text-xs">
-          <Clock className="h-3 w-3" />
-          <span>{getSessionTime(session.launched_at)}</span>
+        <div className="py-3">
+          <div className="flex items-center justify-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-orange-400" />
+            <span className="font-medium text-orange-300">{getSessionTime(session.launched_at)}</span>
+          </div>
         </div>
       ),
     },
     {
       header: "관리",
       cell: (session: OnlineSession) => (
-        <div className="flex gap-2">
+        <div className="flex gap-2 py-3 justify-center">
           <Button
             size="sm"
             variant="outline"
             onClick={() => handleSyncBalance(session)}
             disabled={syncingBalance === session.user_id}
+            className="h-7 w-7 p-0 bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20"
+            title="보유금 동기화"
           >
-            <RefreshCw className={`h-3 w-3 ${syncingBalance === session.user_id ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 text-blue-400 ${syncingBalance === session.user_id ? 'animate-spin' : ''}`} />
           </Button>
           <Button
             size="sm"
@@ -373,8 +535,10 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
               setSelectedSession(session);
               setShowKickDialog(true);
             }}
+            className="h-7 w-7 p-0 bg-red-500/10 border-red-500/30 hover:bg-red-500/20"
+            title="세션 강제 종료"
           >
-            <Power className="h-3 w-3" />
+            <Power className="h-3.5 w-3.5 text-red-400" />
           </Button>
         </div>
       ),

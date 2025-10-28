@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import * as investApi from '../../lib/investApi';
+import { getGameHistory } from '../../lib/investApi';
 import * as opcodeHelper from '../../lib/opcodeHelper';
 import { Partner } from '../../types';
 
@@ -145,7 +145,7 @@ const processSingleOpcode = async (
     console.log(`📍 [BETTING-SYNC] OPCODE ${opcode} 마지막 id (index): ${lastIndex}`);
 
     // 2. API 호출 (마지막 index 이후부터, limit 최대값 사용)
-    const result = await investApi.getGameHistory(opcode, year, month, lastIndex, 4000, secretKey);
+    const result = await getGameHistory(opcode, year, month, lastIndex, 4000, secretKey);
 
     if (result.error || !result.data) {
       console.log(`⚠️ [BETTING-SYNC] OPCODE ${opcode} API 실패`);

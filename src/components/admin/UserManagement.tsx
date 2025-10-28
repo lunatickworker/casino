@@ -14,7 +14,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { useWebSocketContext } from "../../contexts/WebSocketContext";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner@2.0.3";
-import * as investApi from "../../lib/investApi";
 import { getAdminOpcode, isMultipleOpcode } from "../../lib/opcodeHelper";
 import { UserDetailModal } from "./UserDetailModal";
 import { MetricCard } from "./MetricCard";

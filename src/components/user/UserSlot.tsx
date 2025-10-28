@@ -318,6 +318,15 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
         } else {
           toast.success(`${game.game_name} 슬롯을 시작했습니다!`);
           
+          // 게임창 참조 등록 (강제 종료용)
+          if (sessionId && typeof sessionId === 'number') {
+            if (!(window as any).gameWindows) {
+              (window as any).gameWindows = new Map();
+            }
+            (window as any).gameWindows.set(sessionId, gameWindow);
+            console.log('📝 슬롯 게임창 등록:', sessionId);
+          }
+          
           // 슬롯 시작 통계 업데이트
           sendMessage({
             type: 'slot_started',
@@ -328,25 +337,30 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
             timestamp: new Date().toISOString()
           });
 
-          // 게임 창 종료 감지 (주기적 체크)
+          // 게임 창 종료 감지 (즉시 체크 시작)
           if (sessionId) {
-            // 게임 창이 열린 후 10초 대기 (즉시 종료 문제 방지)
+            // 게임 창이 열린 후 3초 대기 (팝업 완전히 로드될 때까지)
             setTimeout(() => {
               const checkGameWindow = setInterval(() => {
                 if (gameWindow.closed) {
                   clearInterval(checkGameWindow);
                   console.log('🎰 슬롯 게임 창 종료 감지');
-                  // 3초 후 잔고 동기화 실행
-                  setTimeout(() => {
-                    if (sessionId && typeof sessionId === 'number') {
-                      (window as any).syncBalanceAfterGame?.(sessionId);
-                    } else {
-                      console.warn('⚠️ 잔고 동기화 실패, sessionId가 유효하지 않음:', sessionId);
-                    }
-                  }, 3000);
+                  
+                  // 게임창 참조 삭제
+                  if (typeof sessionId === 'number') {
+                    (window as any).gameWindows?.delete(sessionId);
+                    console.log('🧹 슬롯 게임창 참조 삭제:', sessionId);
+                  }
+                  
+                  // 즉시 세션 종료 및 잔고 동기화 실행
+                  if (sessionId && typeof sessionId === 'number') {
+                    (window as any).syncBalanceAfterGame?.(sessionId);
+                  } else {
+                    console.warn('⚠️ 잔고 동기화 실패, sessionId가 유효하지 않음:', sessionId);
+                  }
                 }
-              }, 2000);
-            }, 10000); // 10초 후부터 체크 시작
+              }, 1000); // 1초마다 체크
+            }, 3000); // 3초 후부터 체크 시작
           }
         }
       } else {
