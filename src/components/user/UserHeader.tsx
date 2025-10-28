@@ -3,7 +3,6 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { 
   User, 
-  Menu, 
   Gamepad2, 
   Coins,
   CreditCard,
@@ -13,10 +12,10 @@ import {
   LogOut,
   Crown,
   Wallet,
-  History
+  History,
+  Bell
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,7 +56,6 @@ const menuItems = [
 export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: UserHeaderProps) {
   const [balance, setBalance] = useState<UserBalance>({ balance: 0, points: 0 });
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showPointsDialog, setShowPointsDialog] = useState(false);
   const { connected } = useWebSocket();
 
@@ -266,24 +264,24 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-60" />
         
         <div className="container mx-auto px-3 sm:px-4 max-w-full">
-          <div className="flex items-center justify-between h-16 min-w-0">
+          <div className="flex items-center justify-between h-20 lg:h-20 min-w-0">
             {/* 로고 */}
-            <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <button
                 onClick={() => {
                   window.history.pushState({}, '', '/admin');
                   window.dispatchEvent(new Event('popstate'));
                 }}
-                className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden golden-border cursor-pointer hover:opacity-80 transition-opacity"
+                className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden golden-border cursor-pointer hover:opacity-80 transition-opacity"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500 via-red-600 to-yellow-500" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Crown className="w-5 h-5 sm:w-7 sm:h-7 text-white drop-shadow-lg relative z-10" />
+                  <Crown className="w-8 h-8 sm:w-9 sm:h-9 text-white drop-shadow-lg relative z-10" />
                 </div>
               </button>
               <div className="hidden sm:block">
-                <div className="text-lg sm:text-2xl font-bold gold-text neon-glow tracking-wide">VIP CASINO</div>
-                <div className="text-[9px] sm:text-[10px] text-yellow-400 tracking-widest uppercase">LUXURY EXPERIENCE</div>
+                <div className="text-2xl sm:text-3xl gold-text neon-glow tracking-wide">VIP CASINO</div>
+                <div className="text-sm sm:text-base text-yellow-400 tracking-widest uppercase">LUXURY EXPERIENCE</div>
               </div>
             </div>
 
@@ -315,17 +313,17 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
               })}
             </nav>
 
-            {/* Right Section */}
-            <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+            {/* Right Section - Desktop */}
+            <div className="hidden lg:flex items-center space-x-2 lg:space-x-3 flex-shrink-0">
               {/* 잔고 정보 - VIP 럭셔리 스타일 */}
-              <div className="hidden md:flex items-center space-x-2 lg:space-x-3 luxury-card rounded-xl px-2 lg:px-4 py-2 lg:py-2.5">
+              <div className="flex items-center space-x-2 lg:space-x-3 luxury-card rounded-xl px-2 lg:px-4 py-2 lg:py-2.5">
                 <div className="flex items-center space-x-1 lg:space-x-2 group cursor-pointer">
                   <div className="p-1 lg:p-1.5 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/30">
                     <Wallet className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
                   </div>
                   <div className="text-right">
-                    <div className="text-[8px] lg:text-[10px] text-yellow-400/70 tracking-wide">BALANCE</div>
-                    <div className="text-xs lg:text-sm font-bold text-green-400 jackpot-counter">
+                    <div className="text-[10px] text-yellow-400/70 tracking-wide">BALANCE</div>
+                    <div className="text-sm text-green-400">
                       ₩{formatCurrency(balance.balance)}
                     </div>
                   </div>
@@ -339,8 +337,8 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
                     <Coins className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
                   </div>
                   <div className="text-right">
-                    <div className="text-[8px] lg:text-[10px] text-yellow-400/70 tracking-wide">POINTS</div>
-                    <div className="text-xs lg:text-sm font-bold text-yellow-400">
+                    <div className="text-[10px] text-yellow-400/70 tracking-wide">POINTS</div>
+                    <div className="text-sm text-yellow-400">
                       {formatCurrency(balance.points)}P
                     </div>
                   </div>
@@ -350,15 +348,15 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
               {/* 사용자 정보 - VIP 럭셔리 스타일 */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-1 sm:space-x-2 text-yellow-100 hover:text-white hover:bg-yellow-900/20 border border-transparent hover:border-yellow-600/30 luxury-card px-2 sm:px-3 py-2 min-w-0">
-                    <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
-                      <Badge className={`vip-badge ${vipBadge.color} text-white px-1.5 sm:px-2.5 py-0.5 sm:py-1 border border-yellow-400/30`}>
-                        <Crown className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1 drop-shadow-lg" />
-                        <span className="font-bold tracking-wide text-xs sm:text-sm">{vipBadge.label}</span>
+                  <Button variant="ghost" className="flex items-center space-x-2 text-yellow-100 hover:text-white hover:bg-yellow-900/20 border border-transparent hover:border-yellow-600/30 luxury-card px-3 py-2 min-w-0">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <Badge className={`vip-badge ${vipBadge.color} text-white px-2.5 py-1 border border-yellow-400/30`}>
+                        <Crown className="w-3 h-3 mr-1 drop-shadow-lg" />
+                        <span className="tracking-wide text-sm">{vipBadge.label}</span>
                       </Badge>
-                      <span className="font-semibold text-yellow-100 text-sm hidden sm:inline truncate max-w-20">{user.nickname}</span>
+                      <span className="text-yellow-100 text-sm truncate max-w-20">{user.nickname}</span>
                     </div>
-                    <User className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <User className="w-4 h-4 flex-shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 luxury-card border-yellow-600/30" align="end">
@@ -393,79 +391,58 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </div>
 
-              {/* Mobile Menu Button */}
-              <div className="lg:hidden">
-                <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-                  <SheetTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white">
-                      <Menu className="w-6 h-6" />
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="w-80 bg-slate-900 border-slate-700">
-                    <SheetHeader>
-                      <SheetTitle className="text-white text-left">메뉴</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-6 space-y-2">
-                      {/* Mobile 잔고 정보 */}
-                      <div className="bg-slate-800/50 rounded-lg p-4 mb-6">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-300">보유금</span>
-                            <span className="text-lg font-bold text-green-400">₩{formatCurrency(balance.balance)}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-300">포인트</span>
-                            <button
-                              onClick={() => setShowPointsDialog(true)}
-                              className="text-lg font-bold text-yellow-400 hover:opacity-80 transition-opacity"
-                            >
-                              {formatCurrency(balance.points)}P
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+            {/* Right Section - Mobile */}
+            <div className="lg:hidden flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {/* 고객센터 */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRouteChange('/user/support')}
+                className="p-1.5 sm:p-2 text-yellow-100 hover:text-white hover:bg-yellow-900/20"
+              >
+                <MessageSquare className="w-8 h-8 sm:w-9 sm:h-9" />
+              </Button>
 
-                      {/* Mobile Navigation */}
-                      {menuItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = currentRoute === item.path;
-                        return (
-                          <Button
-                            key={item.path}
-                            variant="ghost"
-                            onClick={() => {
-                              onRouteChange(item.path);
-                              setIsMobileMenuOpen(false);
-                            }}
-                            className={`
-                              w-full justify-start text-left px-4 py-4 h-auto
-                              ${isActive 
-                                ? 'bg-gradient-to-r from-yellow-600 to-red-600 text-white' 
-                                : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                              }
-                            `}
-                          >
-                            <Icon className="w-6 h-6 mr-3" />
-                            <span className="text-base">{item.label}</span>
-                          </Button>
-                        );
-                      })}
+              {/* 공지사항 */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRouteChange('/user/notice')}
+                className="p-1.5 sm:p-2 text-yellow-100 hover:text-white hover:bg-yellow-900/20"
+              >
+                <Bell className="w-8 h-8 sm:w-9 sm:h-9" />
+              </Button>
 
-                      <div className="pt-4 mt-4 border-t border-slate-700">
-                        <Button
-                          variant="ghost"
-                          onClick={onLogout}
-                          className="w-full justify-start text-left px-4 py-3 h-auto text-red-400 hover:text-red-300 hover:bg-slate-800"
-                        >
-                          <LogOut className="w-5 h-5 mr-3" />
-                          로그아웃
-                        </Button>
-                      </div>
-                    </div>
-                  </SheetContent>
-                </Sheet>
+              {/* 보유금 */}
+              <div className="flex flex-col items-end px-2 py-1.5 rounded-lg bg-black/40">
+                <div className="text-sm sm:text-base text-yellow-400/70 tracking-wide">보유금</div>
+                <div className="text-lg sm:text-xl text-green-400 whitespace-nowrap">
+                  ₩{formatCurrency(balance.balance)}
+                </div>
               </div>
+
+              {/* 포인트 */}
+              <button
+                onClick={() => setShowPointsDialog(true)}
+                className="flex flex-col items-end px-2 py-1.5 rounded-lg bg-black/40 hover:bg-yellow-900/20 transition-colors"
+              >
+                <div className="text-sm sm:text-base text-yellow-400/70 tracking-wide">포인트</div>
+                <div className="text-lg sm:text-xl text-yellow-400 whitespace-nowrap">
+                  {formatCurrency(balance.points)}P
+                </div>
+              </button>
+
+              {/* 로그아웃 */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onLogout}
+                className="p-1.5 sm:p-2 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+              >
+                <LogOut className="w-8 h-8 sm:w-9 sm:h-9" />
+              </Button>
             </div>
           </div>
         </div>
@@ -474,9 +451,9 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
       {/* Mobile Bottom Navigation - VIP 럭셔리 스타일 (카지노부터 시작) */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-yellow-600/30 shadow-2xl overflow-x-hidden">
         {/* 상단 골든 라인 */}
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-500 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent" />
         
-        <div className="flex items-center justify-around py-2.5 px-2 safe-area-bottom">
+        <div className="flex items-center justify-around py-3 px-1 safe-area-bottom">
           {menuItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const isActive = currentRoute === item.path;
@@ -487,19 +464,19 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
                 size="sm"
                 onClick={() => onRouteChange(item.path)}
                 className={`
-                  flex flex-col items-center space-y-1 px-1.5 py-2.5 min-h-14 relative flex-1 max-w-20
+                  flex flex-col items-center justify-center gap-1.5 px-1 py-3 min-h-[90px] relative flex-1
                   ${isActive 
                     ? 'text-yellow-400' 
                     : 'text-yellow-200/70 hover:text-yellow-100'
                   }
                 `}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : ''}`} />
-                <span className={`text-[10px] tracking-wide ${isActive ? 'neon-glow' : ''} truncate`}>
+                <Icon className={`w-11 h-11 sm:w-12 sm:h-12 flex-shrink-0 ${isActive ? 'drop-shadow-[0_0_12px_rgba(250,204,21,1)]' : ''}`} />
+                <span className={`text-sm sm:text-base leading-tight text-center ${isActive ? 'neon-glow' : ''} whitespace-nowrap px-1`}>
                   {item.label}
                 </span>
                 {isActive && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent rounded-full" />
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-12 h-1.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent rounded-full" />
                 )}
               </Button>
             );

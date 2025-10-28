@@ -64,16 +64,36 @@ export async function getAdminOpcode(admin: Partner): Promise<OpcodeInfo | Multi
     }
 
     // 1-2. 모든 대본사 OPCODE 추가
-    const { data: masterPartners, error } = await supabase
-      .from('partners')
-      .select('id, username, nickname, opcode, secret_key, api_token')
-      .eq('partner_type', 'head_office')
-      .not('opcode', 'is', null)
-      .not('secret_key', 'is', null)
-      .not('api_token', 'is', null);
-
-    if (error) {
-      console.error('❌ 대본사 OPCODE 조회 오류:', error);
+    let masterPartners: any[] | null = null;
+    let error: any = null;
+    
+    try {
+      const result = await supabase
+        .from('partners')
+        .select('id, username, nickname, opcode, secret_key, api_token')
+        .eq('partner_type', 'head_office')
+        .not('opcode', 'is', null)
+        .not('secret_key', 'is', null)
+        .not('api_token', 'is', null);
+      
+      masterPartners = result.data;
+      error = result.error;
+      
+      if (error) {
+        console.error('❌ 대본사 OPCODE 조회 오류:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+      }
+    } catch (fetchError: any) {
+      console.error('❌ ❌ 대본사 OPCODE 조회 오류:', {
+        message: fetchError.message || String(fetchError),
+        stack: fetchError.stack,
+        type: fetchError.constructor.name
+      });
+      // 네트워크 오류여도 계속 진행 (시스템관리자 본인 OPCODE만 사용)
     }
 
     if (masterPartners && masterPartners.length > 0) {

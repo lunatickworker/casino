@@ -164,26 +164,49 @@ export function EnhancedGameManagement({ user }: EnhancedGameManagementProps) {
       // 필터 적용
       if (selectedProvider !== "all") {
         params.provider_id = parseInt(selectedProvider);
+        console.log('🔍 제공사 필터 적용:', selectedProvider, '→', params.provider_id);
       }
       if (selectedStatus !== "all") {
         params.status = selectedStatus;
+        console.log('🔍 상태 필터 적용:', selectedStatus);
       }
       if (searchTerm.trim()) {
         params.search = searchTerm.trim();
+        console.log('🔍 검색어 필터 적용:', searchTerm.trim());
       }
+      
+      console.log('🎮 EnhancedGameManagement - loadGames 호출:', {
+        gameType: type,
+        partnerId: user.id,
+        filters: params
+      });
       
       // 파트너 ID와 필터를 함께 전달
       const data = await gameApi.getGames(user.id, params);
       console.log(`🎮 EnhancedGameManagement - 로드된 게임:`, {
-        개수: data.length,
-        샘플: data.slice(0, 3).map(g => ({
+        전체개수: data.length,
+        탭: type,
+        제공사필터: selectedProvider !== "all" ? selectedProvider : "전체",
+        샘플: data.slice(0, 5).map(g => ({
           id: g.id,
           name: g.name,
-          image_url: g.image_url,
-          provider: g.provider_name
+          provider_id: g.provider_id,
+          provider_name: g.provider_name,
+          type: g.type
         }))
       });
+      
       setGames(data);
+      
+      // 필터링된 게임 개수 확인
+      const filteredCount = data.filter(g => {
+        if (selectedProvider !== "all" && g.provider_id.toString() !== selectedProvider) return false;
+        if (selectedStatus !== "all" && g.status !== selectedStatus) return false;
+        if (searchTerm && !g.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+        return true;
+      }).length;
+      
+      console.log(`✅ 필터링 후 표시될 게임 수:`, filteredCount);
       
     } catch (error) {
       console.error('게임 데이터 로드 실패:', error);
@@ -278,6 +301,7 @@ export function EnhancedGameManagement({ user }: EnhancedGameManagementProps) {
     setSyncingProviders(prev => new Set([...prev, providerId]));
     
     try {
+      console.log(`🔄 ${provider.name} (ID: ${providerId}) 동기화 시작`);
       const result = await gameApi.syncGamesFromAPI(providerId);
       
       if (result.newGames === 0 && result.updatedGames === 0 && result.totalGames === 0) {
@@ -294,6 +318,10 @@ export function EnhancedGameManagement({ user }: EnhancedGameManagementProps) {
             description: `총 ${result.totalGames}개 게임 처리됨`
           }
         );
+        
+        // 동기화 성공 시 해당 제공사로 필터 자동 설정
+        console.log(`✅ 동기화 완료, 제공사 필터 자동 설정: ${providerId}`);
+        setSelectedProvider(providerId.toString());
       }
 
       // 동기화 완료 후 게임 목록 새로고침
@@ -630,18 +658,37 @@ export function EnhancedGameManagement({ user }: EnhancedGameManagementProps) {
                 </div>
               </div>
               <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-                <SelectTrigger className="w-full sm:w-48 bg-slate-800/50 border-slate-600">
-                  <SelectValue placeholder="제공사 선택" />
+                <SelectTrigger className="w-full sm:w-56 bg-slate-800/50 border-slate-600 text-slate-200">
+                  <SelectValue placeholder="제공사 선택">
+                    {selectedProvider === "all" 
+                      ? "모든 제공사" 
+                      : providers.find(p => p.id.toString() === selectedProvider)?.name || "제공사 선택"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">모든 제공사</SelectItem>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <span>🌐 모든 제공사</span>
+                    </div>
+                  </SelectItem>
                   {providers
                     .filter(p => p.type === (activeTab === "casino" ? "casino" : "slot"))
-                    .map(provider => (
-                      <SelectItem key={provider.id} value={provider.id.toString()}>
-                        {provider.name}
-                      </SelectItem>
-                    ))}
+                    .map(provider => {
+                      const providerGamesCount = games.filter(g => 
+                        g.provider_id === provider.id && g.type === activeTab
+                      ).length;
+                      
+                      return (
+                        <SelectItem key={provider.id} value={provider.id.toString()}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{provider.name}</span>
+                            {providerGamesCount > 0 && (
+                              <span className="text-xs text-slate-500">({providerGamesCount}개)</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -657,6 +704,52 @@ export function EnhancedGameManagement({ user }: EnhancedGameManagementProps) {
               </Select>
             </div>
 
+            {/* 현재 필터 상태 표시 */}
+            {(selectedProvider !== "all" || selectedStatus !== "all" || searchTerm) && (
+              <div className="flex flex-wrap items-center gap-2 p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-500/30">
+                <span className="text-sm font-medium text-slate-300">🔍 현재 필터:</span>
+                {selectedProvider !== "all" && (
+                  <Badge variant="default" className="gap-1 bg-blue-600 hover:bg-blue-700">
+                    <Filter className="w-3 h-3" />
+                    {providers.find(p => p.id.toString() === selectedProvider)?.name || '제공사'}
+                    <button
+                      onClick={() => setSelectedProvider("all")}
+                      className="ml-1 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </Badge>
+                )}
+                {selectedStatus !== "all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    {selectedStatus === 'visible' && '노출'}
+                    {selectedStatus === 'hidden' && '비노출'}
+                    {selectedStatus === 'maintenance' && '점검중'}
+                    <button
+                      onClick={() => setSelectedStatus("all")}
+                      className="ml-1 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </Badge>
+                )}
+                {searchTerm && (
+                  <Badge variant="outline" className="gap-1 border-slate-500">
+                    검색: {searchTerm}
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="ml-1 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </Badge>
+                )}
+                <span className="text-xs text-slate-400">
+                  {filteredGames.length}개 게임 표시 중
+                </span>
+              </div>
+            )}
+
             {/* 제공사별 동기화 버튼 */}
             {activeTab === "slot" && (
               <div className="flex flex-wrap gap-2 p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
@@ -665,29 +758,63 @@ export function EnhancedGameManagement({ user }: EnhancedGameManagementProps) {
                 </div>
                 {providers
                   .filter(p => p.type === "slot")
-                  .map(provider => (
-                    <Button
-                      key={provider.id}
-                      size="sm"
-                      variant="outline"
-                      onClick={() => syncProviderGames(provider.id)}
-                      disabled={syncingProviders.has(provider.id) || bulkSyncing}
-                      className="gap-1 border-slate-600 hover:bg-slate-700"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${syncingProviders.has(provider.id) ? 'animate-spin' : ''}`} />
-                      {provider.name}
-                    </Button>
-                  ))}
+                  .map(provider => {
+                    const providerGamesCount = games.filter(g => 
+                      g.provider_id === provider.id && g.type === "slot"
+                    ).length;
+                    
+                    return (
+                      <Button
+                        key={provider.id}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => syncProviderGames(provider.id)}
+                        disabled={syncingProviders.has(provider.id) || bulkSyncing}
+                        className="gap-1 border-slate-600 hover:bg-slate-700"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${syncingProviders.has(provider.id) ? 'animate-spin' : ''}`} />
+                        {provider.name}
+                        {providerGamesCount > 0 && (
+                          <span className="text-xs text-slate-400">({providerGamesCount})</span>
+                        )}
+                      </Button>
+                    );
+                  })}
               </div>
             )}
 
             {/* 게임 테이블 */}
+            {filteredGames.length === 0 && !loading && (
+              <div className="flex flex-col items-center justify-center py-16 px-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
+                <Gamepad2 className="w-16 h-16 text-slate-600 mb-4" />
+                <h3 className="text-lg font-semibold text-slate-300 mb-2">
+                  {selectedProvider !== "all" 
+                    ? `${providers.find(p => p.id.toString() === selectedProvider)?.name || '선택한 제공사'} 게임이 없습니다`
+                    : '게임이 없습니다'}
+                </h3>
+                <p className="text-sm text-slate-400 text-center max-w-md mb-6">
+                  {selectedProvider !== "all"
+                    ? "해당 제공사의 게임을 동기화하려면 위의 동기화 버튼을 클릭하세요."
+                    : "제공사를 선택하고 동기화 버튼을 클릭하여 게임을 불러오세요."}
+                </p>
+                {selectedProvider !== "all" && activeTab === "slot" && (
+                  <Button
+                    onClick={() => syncProviderGames(parseInt(selectedProvider))}
+                    disabled={syncingProviders.has(parseInt(selectedProvider))}
+                    className="btn-premium-primary"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${syncingProviders.has(parseInt(selectedProvider)) ? 'animate-spin' : ''}`} />
+                    {providers.find(p => p.id.toString() === selectedProvider)?.name} 동기화
+                  </Button>
+                )}
+              </div>
+            )}
             <DataTable
               data={filteredGames}
               columns={gameColumns}
               loading={loading}
               enableSearch={false}
-              emptyMessage="게임이 없습니다"
+              emptyMessage=""
             />
           </div>
         </Tabs>

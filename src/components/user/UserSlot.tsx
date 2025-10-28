@@ -438,36 +438,97 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
         </div>
 
         {/* 검색 및 필터 */}
-        <div className="flex flex-col lg:flex-row gap-5 items-center justify-between">
-          <div className="relative flex-1 max-w-xl">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-yellow-400" />
-            <Input
-              type="text"
-              placeholder="슬롯 검색..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 h-14 text-lg bg-black/50 border-yellow-600/30 text-white placeholder:text-yellow-200/50 focus:border-yellow-500"
-            />
+        <div className="flex flex-col lg:flex-row gap-3 items-center justify-between">
+          <div className="flex gap-2 sm:gap-3 items-center w-full lg:flex-1">
+            {/* 검색 */}
+            <div className="relative flex-1 max-w-xl">
+              <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 drop-shadow-lg" />
+              <Input
+                type="text"
+                placeholder="슬롯 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 sm:pl-12 h-14 text-base sm:text-lg bg-gradient-to-r from-black/60 via-black/50 to-black/60 border-2 border-yellow-600/40 text-white placeholder:text-yellow-200/50 focus:border-yellow-500 rounded-lg shadow-lg shadow-yellow-900/10 focus:shadow-yellow-600/20 transition-all duration-300"
+              />
+            </div>
+            
+            {/* 제공사 드롭다운 - VIP 럭셔리 스타일 */}
+            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+              <SelectTrigger className="relative w-40 sm:w-48 h-14 text-base sm:text-lg bg-gradient-to-r from-black/80 via-black/70 to-black/80 border-2 border-yellow-600/50 text-yellow-100 hover:border-yellow-500 transition-all duration-300 shadow-lg shadow-yellow-900/20 hover:shadow-yellow-600/30 rounded-lg">
+                <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/10 via-transparent to-yellow-600/10 pointer-events-none rounded-lg" />
+                <div className="flex items-center gap-2 relative z-10">
+                  <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 drop-shadow-lg" />
+                  <SelectValue placeholder="제공사" className="truncate" />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-2 border-yellow-600/50 shadow-2xl shadow-yellow-900/50 max-h-[400px] backdrop-blur-md rounded-xl">
+                <SelectItem 
+                  value="all" 
+                  className="text-yellow-100 hover:text-yellow-400 hover:bg-yellow-900/30 cursor-pointer transition-all duration-200 border-b border-yellow-600/20 text-base sm:text-lg py-3"
+                >
+                  <div className="flex items-center gap-2 py-1">
+                    <Crown className="w-5 h-5 text-yellow-400 drop-shadow-lg" />
+                    <span className="tracking-wide">전체 제공사</span>
+                  </div>
+                </SelectItem>
+                {providers.map((provider) => (
+                  <SelectItem 
+                    key={provider.id} 
+                    value={provider.id.toString()} 
+                    className="text-yellow-100 hover:text-yellow-400 hover:bg-yellow-900/20 cursor-pointer transition-all duration-200 text-base sm:text-lg py-3"
+                  >
+                    <div className="flex items-center gap-2 py-1">
+                      <Sparkles className="w-4 h-4 text-yellow-400/60" />
+                      <span>{provider.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="flex gap-4 items-center">
+            {/* 정렬 드롭다운 - VIP 럭셔리 스타일 */}
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-40 h-14 text-lg bg-black/50 border-yellow-600/30 text-white">
-                <SelectValue />
+              <SelectTrigger className="relative w-40 h-14 text-lg bg-gradient-to-r from-black/80 via-black/70 to-black/80 border-2 border-yellow-600/50 text-yellow-100 hover:border-yellow-500 transition-all duration-300 shadow-lg shadow-yellow-900/20 hover:shadow-yellow-600/30">
+                <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/10 via-transparent to-yellow-600/10 pointer-events-none" />
+                <div className="relative z-10">
+                  <SelectValue />
+                </div>
               </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                <SelectItem value="featured">추천순</SelectItem>
-                <SelectItem value="name">이름순</SelectItem>
-                <SelectItem value="rtp">수익률순</SelectItem>
+              <SelectContent className="bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-2 border-yellow-600/50 shadow-2xl shadow-yellow-900/50 backdrop-blur-md">
+                <SelectItem value="featured" className="text-yellow-100 hover:text-yellow-400 hover:bg-yellow-900/30 cursor-pointer transition-all duration-200">
+                  <div className="flex items-center gap-2 py-1">
+                    <Star className="w-4 h-4 text-yellow-400" />
+                    <span>추천순</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="name" className="text-yellow-100 hover:text-yellow-400 hover:bg-yellow-900/30 cursor-pointer transition-all duration-200">
+                  <div className="flex items-center gap-2 py-1">
+                    <Target className="w-4 h-4 text-yellow-400/60" />
+                    <span>이름순</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="rtp" className="text-yellow-100 hover:text-yellow-400 hover:bg-yellow-900/30 cursor-pointer transition-all duration-200">
+                  <div className="flex items-center gap-2 py-1">
+                    <TrendingUp className="w-4 h-4 text-green-400" />
+                    <span>수익률순</span>
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
             
-            <div className="flex gap-2 bg-black/50 border border-yellow-600/30 rounded-lg p-2">
+            {/* 뷰 모드 토글 - VIP 럭셔리 스타일 */}
+            <div className="hidden lg:flex gap-2 bg-gradient-to-r from-black/80 via-black/70 to-black/80 border-2 border-yellow-600/50 rounded-lg p-2 shadow-lg shadow-yellow-900/20">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('grid')}
-                className={`w-12 h-12 ${viewMode === 'grid' ? 'bg-yellow-600 text-black' : 'text-yellow-300'}`}
+                className={`w-12 h-12 transition-all duration-300 ${
+                  viewMode === 'grid' 
+                    ? 'bg-gradient-to-r from-yellow-600 to-yellow-500 text-black shadow-lg shadow-yellow-600/50 hover:from-yellow-500 hover:to-yellow-400' 
+                    : 'text-yellow-300 hover:text-yellow-100 hover:bg-yellow-900/20'
+                }`}
               >
                 <Grid className="w-6 h-6" />
               </Button>
@@ -475,7 +536,11 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('list')}
-                className={`w-12 h-12 ${viewMode === 'list' ? 'bg-yellow-600 text-black' : 'text-yellow-300'}`}
+                className={`w-12 h-12 transition-all duration-300 ${
+                  viewMode === 'list' 
+                    ? 'bg-gradient-to-r from-yellow-600 to-yellow-500 text-black shadow-lg shadow-yellow-600/50 hover:from-yellow-500 hover:to-yellow-400' 
+                    : 'text-yellow-300 hover:text-yellow-100 hover:bg-yellow-900/20'
+                }`}
               >
                 <List className="w-6 h-6" />
               </Button>
@@ -511,8 +576,8 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
           })}
         </div>
 
-        {/* 제공사 선택 */}
-        <div className="luxury-card rounded-3xl p-8 border-2 border-yellow-600/20">
+        {/* 제공사 선택 - 모바일에서는 숨김 */}
+        <div className="hidden lg:block luxury-card rounded-3xl p-8 border-2 border-yellow-600/20">
           <GameProviderSelector
             selectedProvider={selectedProvider}
             onProviderChange={setSelectedProvider}

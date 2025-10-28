@@ -71,48 +71,6 @@ async function getGames(partnerIdOrFilters?: string | {
 
   console.log('🔍 getGames 호출:', { partnerId, filters });
 
-  // 파트너 ID가 있으면 파트너별 커스텀 설정이 포함된 게임 목록 조회
-  if (partnerId) {
-    const { data, error } = await supabase
-      .rpc('get_games_with_partner_settings', {
-        p_partner_id: partnerId,
-        p_game_type: filters?.type || null,
-        p_provider_id: filters?.provider_id ? parseInt(filters.provider_id.toString()) : null,
-        p_search_term: filters?.search || null,
-        p_limit: 10000,
-        p_offset: 0
-      });
-
-    if (error) {
-      console.error('파트너별 게임 목록 조회 오류:', error);
-      throw error;
-    }
-
-    console.log(`✅ 파트너별 게임 조회 완료:`, data?.length || 0);
-
-    return (data || []).map((game: any) => ({
-      id: game.id,
-      provider_id: game.provider_id,
-      name: game.name,
-      type: game.type,
-      // 커스텀 설정이 있으면 우선 적용
-      status: game.custom_status || game.status,
-      image_url: game.image_url,
-      demo_available: game.demo_available,
-      is_featured: game.custom_is_featured !== null && game.custom_is_featured !== undefined 
-        ? game.custom_is_featured 
-        : game.is_featured,
-      priority: game.custom_priority !== null && game.custom_priority !== undefined
-        ? game.custom_priority 
-        : game.priority,
-      rtp: game.rtp,
-      play_count: game.play_count,
-      created_at: game.created_at,
-      updated_at: game.updated_at,
-      provider_name: game.provider_name
-    }));
-  }
-
   // 기본 게임 목록 조회
   let query = supabase
     .from('games')
@@ -140,8 +98,6 @@ async function getGames(partnerIdOrFilters?: string | {
   // 타입 필터 먼저 적용 (중요: 카지노/슬롯 분리)
   if (filters?.type) {
     query = query.eq('type', filters.type);
-    // 게임 제공사의 타입도 같이 필터링
-    query = query.eq('game_providers.type', filters.type);
     console.log('🔍 타입 필터 적용:', filters.type);
   }
 
@@ -177,7 +133,18 @@ async function getGames(partnerIdOrFilters?: string | {
 
   console.log(`🔍 DB에서 조회된 ${filters?.type || '전체'} 게임:`, {
     총개수: data?.length || 0,
-    샘플: data?.slice(0, 3)
+    필터: {
+      type: filters?.type,
+      provider_id: filters?.provider_id,
+      status: filters?.status,
+      search: filters?.search
+    },
+    샘플: data?.slice(0, 3).map(g => ({
+      id: g.id,
+      name: g.name,
+      provider_id: g.provider_id,
+      provider_name: g.game_providers?.name
+    }))
   });
 
   // 결과 매핑
@@ -198,7 +165,13 @@ async function getGames(partnerIdOrFilters?: string | {
     provider_name: game.game_providers?.name || '알 수 없음'
   }));
 
-  console.log(`🔍 최종 ${filters?.type || '전체'} 게임 수:`, mappedData.length);
+  console.log(`✅ 최종 ${filters?.type || '전체'} 게임:`, {
+    개수: mappedData.length,
+    제공사별_분포: mappedData.reduce((acc: any, g) => {
+      acc[g.provider_name] = (acc[g.provider_name] || 0) + 1;
+      return acc;
+    }, {})
+  });
 
   return mappedData;
 }

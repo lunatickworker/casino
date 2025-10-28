@@ -391,7 +391,7 @@ export function UserLayout({ user, currentRoute, onRouteChange, onLogout, childr
       {/* 관리자 메시지 팝업 (최상단 고정) */}
       <UserMessagePopup userId={user.id} />
       
-      <main className="relative pb-20 lg:pb-4 pt-16 overflow-x-hidden">
+      <main className="relative pb-32 lg:pb-4 pt-20 lg:pt-20 overflow-x-hidden">
         <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-6 relative z-10 max-w-full">
           {children}
         </div>

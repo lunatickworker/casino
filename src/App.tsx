@@ -101,21 +101,10 @@ function AppContent() {
           console.log('✅ user_sessions 종료 완료');
         }
 
-        // 3. game_launch_sessions 테이블의 활성 세션 종료
-        const { error: gameSessError } = await supabase
-          .from('game_launch_sessions')
-          .update({ 
-            status: 'ended',
-            ended_at: new Date().toISOString()
-          })
-          .eq('user_id', userSession.id)
-          .eq('status', 'active');
-
-        if (gameSessError) {
-          console.error('❌ game_launch_sessions 종료 오류:', gameSessError);
-        } else {
-          console.log('✅ game_launch_sessions 종료 완료');
-        }
+        // 3. game_launch_sessions는 로그아웃 시 종료하지 않음
+        // ⚠️ 중요: 게임창을 닫을 때만 세션이 종료되어야 함
+        // UserCasino.tsx와 UserSlot.tsx에서 게임창 닫힘 감지 시 syncBalanceAfterGame() 호출하여 세션 종료
+        console.log('ℹ️ game_launch_sessions는 게임창 닫힘 시에만 종료됨 (로그아웃 시 유지)');
 
         // 4. 활동 로그 기록
         await supabase

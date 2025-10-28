@@ -1,720 +1,594 @@
 import { useState, useEffect } from "react";
-import { Calculator, Download, RefreshCw, TrendingUp, TrendingDown, Search, Calendar, Info } from "lucide-react";
+import { Calculator, Download, RefreshCw, TrendingUp, Calendar as CalendarIcon, AlertCircle, Wallet, BadgeDollarSign } from "lucide-react";
 import { Button } from "../ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Input } from "../ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Badge } from "../ui/badge";
-import { DataTable } from "../common/DataTable";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Calendar as CalendarComponent } from "../ui/calendar";
-import { AdminDialog as Dialog, AdminDialogContent as DialogContent, AdminDialogDescription as DialogDescription, AdminDialogHeader as DialogHeader, AdminDialogTitle as DialogTitle } from "./AdminDialog";
-import { Label } from "../ui/label";
+import { Calendar } from "../ui/calendar";
 import { toast } from "sonner@2.0.3";
-import { Partner, Settlement } from "../../types";
+import { Partner } from "../../types";
 import { supabase } from "../../lib/supabase";
-import { useWebSocketContext } from "../../contexts/WebSocketContext";
 import { cn } from "../../lib/utils";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
 import { MetricCard } from "./MetricCard";
 
 interface CommissionSettlementProps {
   user: Partner;
 }
 
+interface PartnerCommission {
+  partner_id: string;
+  partner_username: string;
+  partner_nickname: string;
+  partner_level: number;
+  commission_rolling: number;
+  commission_losing: number;
+  withdrawal_fee: number;
+  total_bet_amount: number;
+  total_loss_amount: number;
+  total_withdrawal_amount: number;
+  rolling_commission: number;
+  losing_commission: number;
+  withdrawal_commission: number;
+  total_commission: number;
+}
+
 export function CommissionSettlement({ user }: CommissionSettlementProps) {
-  const { lastMessage, sendMessage } = useWebSocketContext();
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // 데이터 상태
-  const [settlements, setSettlements] = useState<Settlement[]>([]);
-  const [partners, setPartners] = useState<Partner[]>([]);
-  
-  // 필터 상태 (간소화)
-  const [settlementType, setSettlementType] = useState("all");
+  const [settlementMethod, setSettlementMethod] = useState<'differential' | 'direct_subordinate'>('direct_subordinate');
   const [periodFilter, setPeriodFilter] = useState("today");
-  const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [commissions, setCommissions] = useState<PartnerCommission[]>([]);
   
-  // 자동 정산 계산 정보 다이얼로그
-  const [showCalculationDialog, setShowCalculationDialog] = useState(false);
-  const [calculationInfo, setCalculationInfo] = useState<any>(null);
-  
-  // 통계 데이터
   const [stats, setStats] = useState({
     totalRollingCommission: 0,
     totalLosingCommission: 0,
-    pendingSettlements: 0,
-    completedSettlements: 0,
-    totalBetAmount: 0,
-    avgCommissionRate: 0
+    totalWithdrawalCommission: 0,
+    totalCommission: 0,
+    partnerCount: 0
   });
 
-  // 데이터 로드 (깜박임 없이)
-  const loadData = async (isInitial = false) => {
+  useEffect(() => {
+    loadSettlementMethod();
+    loadCommissions();
+  }, [user.id, periodFilter, dateRange]);
+
+  const loadSettlementMethod = async () => {
     try {
-      if (isInitial) {
-        setInitialLoading(true);
-      }
-      
-      const dateFilter = getDateRange(periodFilter, dateRange);
-      
-      // 정산 데이터 로드 (롤링/루징만)
-      let query = supabase
-        .from('settlements')
-        .select(`
-          *,
-          partner:partners!settlements_partner_id_fkey(id, nickname, level, commission_rolling, commission_losing)
-        `)
-        .in('settlement_type', ['rolling', 'losing'])
-        .gte('created_at', dateFilter.start)
-        .lte('created_at', dateFilter.end);
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'settlement_method')
+        .single();
 
-      // 권한에 따른 필터링
-      // 시스템관리자가 아니면 본인의 정산만 조회
-      if (user.level > 1) {
-        query = query.eq('partner_id', user.id);
-      }
-
-      const { data: settlementsData, error: settlementsError } = await query
-        .order('created_at', { ascending: false });
-
-      if (settlementsError) throw settlementsError;
-
-      // 파트너 목록 로드 (최초 1회만)
-      if (isInitial || partners.length === 0) {
-        let partnerQuery = supabase
-          .from('partners')
-          .select('id, nickname, level, commission_rolling, commission_losing')
-          .neq('level', 6); // 사용자 제외
-
-        // 시스템관리자가 아니면 본인만 조회
-        if (user.level > 1) {
-          partnerQuery = partnerQuery.eq('id', user.id);
-        }
-
-        const { data: partnersData, error: partnersError } = await partnerQuery
-          .order('level')
-          .order('nickname');
-
-        if (partnersError) throw partnersError;
-        setPartners(partnersData || []);
-      }
-
-      setSettlements(settlementsData || []);
-
-      // 통계 계산
-      if (settlementsData) {
-        const rollingSum = settlementsData
-          .filter(s => s.settlement_type === 'rolling' && s.status === 'completed')
-          .reduce((sum, s) => sum + parseFloat(s.commission_amount.toString()), 0);
-        
-        const losingSum = settlementsData
-          .filter(s => s.settlement_type === 'losing' && s.status === 'completed')
-          .reduce((sum, s) => sum + parseFloat(s.commission_amount.toString()), 0);
-        
-        const pendingCount = settlementsData.filter(s => s.status === 'pending').length;
-        const completedCount = settlementsData.filter(s => s.status === 'completed').length;
-        
-        const totalBet = settlementsData
-          .reduce((sum, s) => sum + parseFloat(s.total_bet_amount.toString()), 0);
-        
-        const avgRate = settlementsData.length > 0
-          ? settlementsData.reduce((sum, s) => sum + parseFloat(s.commission_rate.toString()), 0) / settlementsData.length
-          : 0;
-
-        setStats({
-          totalRollingCommission: rollingSum,
-          totalLosingCommission: losingSum,
-          pendingSettlements: pendingCount,
-          completedSettlements: completedCount,
-          totalBetAmount: totalBet,
-          avgCommissionRate: avgRate
-        });
+      if (error) throw error;
+      if (data) {
+        setSettlementMethod(data.setting_value as 'differential' | 'direct_subordinate');
       }
     } catch (error) {
-      console.error('데이터 로드 실패:', error);
-      toast.error('데이터를 불러오는데 실패했습니다.');
-    } finally {
-      if (isInitial) {
-        setInitialLoading(false);
-      }
+      console.error('정산 방식 로드 실패:', error);
     }
   };
 
-  // 날짜 범위 계산
-  const getDateRange = (filter: string, customRange?: DateRange) => {
-    if (customRange?.from && customRange?.to) {
-      return {
-        start: customRange.from.toISOString(),
-        end: new Date(customRange.to.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString()
-      };
-    }
-
+  const getDateRange = () => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    switch (filter) {
-      case 'today':
-        return { start: today.toISOString(), end: now.toISOString() };
-      case 'week':
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - 7);
-        return { start: weekStart.toISOString(), end: now.toISOString() };
-      case 'month':
-        const monthStart = new Date(today);
-        monthStart.setMonth(today.getMonth() - 1);
-        return { start: monthStart.toISOString(), end: now.toISOString() };
+    switch (periodFilter) {
+      case "today":
+        return {
+          start: today.toISOString(),
+          end: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
+        };
+      case "yesterday":
+        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+        return {
+          start: yesterday.toISOString(),
+          end: today.toISOString()
+        };
+      case "week":
+        const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return {
+          start: weekStart.toISOString(),
+          end: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
+        };
+      case "month":
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        return {
+          start: monthStart.toISOString(),
+          end: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
+        };
+      case "custom":
+        if (dateRange?.from) {
+          const start = new Date(dateRange.from);
+          const end = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from);
+          return {
+            start: start.toISOString(),
+            end: new Date(end.getTime() + 24 * 60 * 60 * 1000).toISOString()
+          };
+        }
+        return {
+          start: today.toISOString(),
+          end: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
+        };
       default:
-        return { start: today.toISOString(), end: now.toISOString() };
+        return {
+          start: today.toISOString(),
+          end: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
+        };
     }
   };
 
-  // 정산 승인/거절 처리
-  const handleSettlementAction = async (settlementId: string, action: 'approve' | 'reject') => {
+  const loadCommissions = async () => {
     try {
-      const { error } = await supabase
-        .from('settlements')
-        .update({
-          status: action === 'approve' ? 'completed' : 'rejected',
-          processed_at: new Date().toISOString()
-        })
-        .eq('id', settlementId);
+      if (!refreshing) {
+        setLoading(true);
+      }
+      const { start, end } = getDateRange();
 
-      if (error) throw error;
+      // 직속 하위 파트너 목록 조회
+      const { data: childPartners, error: partnersError } = await supabase
+        .from('partners')
+        .select('id, username, nickname, level, commission_rolling, commission_losing, withdrawal_fee')
+        .eq('parent_id', user.id)
+        .order('level')
+        .order('nickname');
 
-      toast.success(`정산이 ${action === 'approve' ? '승인' : '거절'}되었습니다.`);
-      
-      // WebSocket으로 실시간 알림
-      sendMessage({
-        type: 'settlement_processed',
-        data: { settlementId, action, processedBy: user.nickname }
+      if (partnersError) throw partnersError;
+      if (!childPartners || childPartners.length === 0) {
+        setCommissions([]);
+        setStats({
+          totalRollingCommission: 0,
+          totalLosingCommission: 0,
+          totalWithdrawalCommission: 0,
+          totalCommission: 0,
+          partnerCount: 0
+        });
+        return;
+      }
+
+      // 각 파트너별로 수수료 계산
+      const commissionsData: PartnerCommission[] = [];
+
+      for (const partner of childPartners) {
+        const commission = await calculatePartnerCommission(partner.id, partner, start, end);
+        commissionsData.push(commission);
+      }
+
+      setCommissions(commissionsData);
+
+      // 통계 계산
+      const newStats = commissionsData.reduce((acc, comm) => ({
+        totalRollingCommission: acc.totalRollingCommission + comm.rolling_commission,
+        totalLosingCommission: acc.totalLosingCommission + comm.losing_commission,
+        totalWithdrawalCommission: acc.totalWithdrawalCommission + comm.withdrawal_commission,
+        totalCommission: acc.totalCommission + comm.total_commission,
+        partnerCount: acc.partnerCount + 1
+      }), {
+        totalRollingCommission: 0,
+        totalLosingCommission: 0,
+        totalWithdrawalCommission: 0,
+        totalCommission: 0,
+        partnerCount: 0
       });
-      
-      await loadData(false);
+
+      setStats(newStats);
     } catch (error) {
-      console.error('정산 처리 실패:', error);
-      toast.error('정산 처리에 실패했습니다.');
-    }
-  };
-
-  // 자동 정산 실행
-  const handleAutoSettlement = async () => {
-    try {
-      setRefreshing(true);
-      
-      // 자동 정산 전 계산 정보 조회
-      const { data: settlementsData, error: queryError } = await supabase
-        .from('settlements')
-        .select(`
-          *,
-          partner:partners!settlements_partner_id_fkey(id, nickname, commission_rolling, commission_losing)
-        `)
-        .eq('status', 'pending')
-        .in('settlement_type', ['rolling', 'losing']);
-
-      if (queryError) throw queryError;
-
-      // 계산 정보 준비
-      const rollingSettlements = (settlementsData || []).filter(s => s.settlement_type === 'rolling');
-      const losingSettlements = (settlementsData || []).filter(s => s.settlement_type === 'losing');
-
-      const calculationDetails = {
-        rolling: {
-          count: rollingSettlements.length,
-          totalBet: rollingSettlements.reduce((sum, s) => sum + parseFloat(s.total_bet_amount.toString()), 0),
-          totalCommission: rollingSettlements.reduce((sum, s) => sum + parseFloat(s.commission_amount.toString()), 0),
-          formula: '롤링 수수료 = 총 베팅액 × 롤링 수수료율',
-          items: rollingSettlements.map(s => ({
-            partner: s.partner?.nickname,
-            betAmount: parseFloat(s.total_bet_amount.toString()),
-            rate: parseFloat(s.commission_rate.toString()),
-            commission: parseFloat(s.commission_amount.toString())
-          }))
-        },
-        losing: {
-          count: losingSettlements.length,
-          totalLoss: losingSettlements.reduce((sum, s) => sum + (parseFloat(s.total_bet_amount.toString()) - parseFloat(s.total_win_amount.toString())), 0),
-          totalCommission: losingSettlements.reduce((sum, s) => sum + parseFloat(s.commission_amount.toString()), 0),
-          formula: '루징 수수료 = (베팅액 - 당첨액) × 루징 수수료율',
-          items: losingSettlements.map(s => ({
-            partner: s.partner?.nickname,
-            betAmount: parseFloat(s.total_bet_amount.toString()),
-            winAmount: parseFloat(s.total_win_amount.toString()),
-            loss: parseFloat(s.total_bet_amount.toString()) - parseFloat(s.total_win_amount.toString()),
-            rate: parseFloat(s.commission_rate.toString()),
-            commission: parseFloat(s.commission_amount.toString())
-          }))
-        },
-        totalCount: (settlementsData || []).length,
-        totalCommission: (settlementsData || []).reduce((sum, s) => sum + parseFloat(s.commission_amount.toString()), 0)
-      };
-
-      setCalculationInfo(calculationDetails);
-      setShowCalculationDialog(true);
-      
-      // auto_calculate_settlements 함수 호출
-      const { data, error } = await supabase.rpc('auto_calculate_settlements');
-      
-      if (error) throw error;
-      
-      toast.success(`${data}건의 정산이 자동으로 처리되었습니다.`);
-      await loadData(false);
-    } catch (error) {
-      console.error('자동 정산 실패:', error);
-      toast.error('자동 정산에 실패했습니다.');
+      console.error('수수료 계산 실패:', error);
+      toast.error('수수료 데이터를 불러오는데 실패했습니다.');
     } finally {
+      setLoading(false);
       setRefreshing(false);
     }
   };
 
-  // 엑셀 다운로드
-  const handleExportExcel = () => {
-    const csvData = settlements.map(settlement => ({
-      '파트너': settlement.partner?.nickname,
-      '정산타입': settlement.settlement_type === 'rolling' ? '롤링' : '루징',
-      '기간시작': settlement.period_start,
-      '기간종료': settlement.period_end,
-      '총베팅금액': parseFloat(settlement.total_bet_amount.toString()),
-      '총당첨금액': parseFloat(settlement.total_win_amount.toString()),
-      '수수료율': parseFloat(settlement.commission_rate.toString()),
-      '수수료금액': parseFloat(settlement.commission_amount.toString()),
-      '상태': settlement.status === 'pending' ? '대기' : '완료',
-      '생성일시': new Date(settlement.created_at).toLocaleString()
-    }));
-    
-    // CSV 변환 및 다운로드 로직
-    const csv = [
-      Object.keys(csvData[0] || {}).join(','),
-      ...csvData.map(row => Object.values(row).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `정산내역_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
+  const calculatePartnerCommission = async (
+    partnerId: string,
+    partner: any,
+    start: string,
+    end: string
+  ): Promise<PartnerCommission> => {
+    try {
+      let totalBetAmount = 0;
+      let totalLossAmount = 0;
+      let totalWithdrawalAmount = 0;
+
+      if (settlementMethod === 'direct_subordinate') {
+        // 직속 하위 정산: 해당 파트너의 모든 하위 사용자 데이터 계산
+        const descendantUserIds = await getDescendantUserIds(partnerId);
+
+        if (descendantUserIds.length > 0) {
+          // 베팅 데이터 조회
+          const { data: bettingData, error: bettingError } = await supabase
+            .from('game_records')
+            .select('bet_amount, win_amount')
+            .in('user_id', descendantUserIds)
+            .gte('created_at', start)
+            .lte('created_at', end);
+
+          if (bettingError) throw bettingError;
+
+          if (bettingData) {
+            totalBetAmount = bettingData.reduce((sum, record) => sum + (record.bet_amount || 0), 0);
+            totalLossAmount = bettingData.reduce((sum, record) => {
+              const loss = (record.bet_amount || 0) - (record.win_amount || 0);
+              return sum + (loss > 0 ? loss : 0);
+            }, 0);
+          }
+
+          // 출금 데이터 조회
+          const { data: withdrawalData, error: withdrawalError } = await supabase
+            .from('transactions')
+            .select('amount')
+            .in('user_id', descendantUserIds)
+            .eq('transaction_type', 'withdrawal')
+            .eq('status', 'approved')
+            .gte('created_at', start)
+            .lte('created_at', end);
+
+          if (withdrawalError) throw withdrawalError;
+
+          if (withdrawalData) {
+            totalWithdrawalAmount = withdrawalData.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+          }
+        }
+      } else {
+        // 차등 정산: 직속 사용자만 계산
+        const { data: directUsers, error: usersError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('referrer_id', partnerId);
+
+        if (usersError) throw usersError;
+
+        if (directUsers && directUsers.length > 0) {
+          const userIds = directUsers.map(u => u.id);
+
+          // 베팅 데이터 조회
+          const { data: bettingData, error: bettingError } = await supabase
+            .from('game_records')
+            .select('bet_amount, win_amount')
+            .in('user_id', userIds)
+            .gte('created_at', start)
+            .lte('created_at', end);
+
+          if (bettingError) throw bettingError;
+
+          if (bettingData) {
+            totalBetAmount = bettingData.reduce((sum, record) => sum + (record.bet_amount || 0), 0);
+            totalLossAmount = bettingData.reduce((sum, record) => {
+              const loss = (record.bet_amount || 0) - (record.win_amount || 0);
+              return sum + (loss > 0 ? loss : 0);
+            }, 0);
+          }
+
+          // 출금 데이터 조회
+          const { data: withdrawalData, error: withdrawalError } = await supabase
+            .from('transactions')
+            .select('amount')
+            .in('user_id', userIds)
+            .eq('transaction_type', 'withdrawal')
+            .eq('status', 'approved')
+            .gte('created_at', start)
+            .lte('created_at', end);
+
+          if (withdrawalError) throw withdrawalError;
+
+          if (withdrawalData) {
+            totalWithdrawalAmount = withdrawalData.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+          }
+        }
+      }
+
+      // 수수료 계산
+      const rollingCommission = totalBetAmount * (partner.commission_rolling / 100);
+      const losingCommission = totalLossAmount * (partner.commission_losing / 100);
+      const withdrawalCommission = totalWithdrawalAmount * (partner.withdrawal_fee / 100);
+      const totalCommission = rollingCommission + losingCommission + withdrawalCommission;
+
+      return {
+        partner_id: partnerId,
+        partner_username: partner.username,
+        partner_nickname: partner.nickname,
+        partner_level: partner.level,
+        commission_rolling: partner.commission_rolling,
+        commission_losing: partner.commission_losing,
+        withdrawal_fee: partner.withdrawal_fee,
+        total_bet_amount: totalBetAmount,
+        total_loss_amount: totalLossAmount,
+        total_withdrawal_amount: totalWithdrawalAmount,
+        rolling_commission: rollingCommission,
+        losing_commission: losingCommission,
+        withdrawal_commission: withdrawalCommission,
+        total_commission: totalCommission
+      };
+    } catch (error) {
+      console.error('파트너 수수료 계산 실패:', error);
+      return {
+        partner_id: partnerId,
+        partner_username: partner.username,
+        partner_nickname: partner.nickname,
+        partner_level: partner.level,
+        commission_rolling: partner.commission_rolling,
+        commission_losing: partner.commission_losing,
+        withdrawal_fee: partner.withdrawal_fee,
+        total_bet_amount: 0,
+        total_loss_amount: 0,
+        total_withdrawal_amount: 0,
+        rolling_commission: 0,
+        losing_commission: 0,
+        withdrawal_commission: 0,
+        total_commission: 0
+      };
+    }
   };
 
-  useEffect(() => {
-    loadData(true);
-  }, []);
+  // 재귀적으로 모든 하위 사용자 ID 가져오기
+  const getDescendantUserIds = async (partnerId: string): Promise<string[]> => {
+    const allUserIds: string[] = [];
 
-  // 필터 변경 시 자동 새로고침 (깜박임 없이)
-  useEffect(() => {
-    if (!initialLoading) {
-      loadData(false);
+    // 직속 사용자 조회
+    const { data: directUsers } = await supabase
+      .from('users')
+      .select('id')
+      .eq('referrer_id', partnerId);
+
+    if (directUsers) {
+      allUserIds.push(...directUsers.map(u => u.id));
     }
-  }, [periodFilter, dateRange]);
 
-  // WebSocket 메시지 처리
-  useEffect(() => {
-    if (lastMessage?.type === 'settlement_complete') {
-      loadData(false);
+    // 하위 파트너 조회
+    const { data: childPartners } = await supabase
+      .from('partners')
+      .select('id')
+      .eq('parent_id', partnerId);
+
+    if (childPartners) {
+      for (const child of childPartners) {
+        const childUserIds = await getDescendantUserIds(child.id);
+        allUserIds.push(...childUserIds);
+      }
     }
-  }, [lastMessage]);
 
-  if (initialLoading) {
-    return <LoadingSpinner />;
+    return allUserIds;
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadCommissions();
+  };
+
+  const handleExport = () => {
+    toast.info('엑셀 내보내기 기능은 준비중입니다.');
+  };
+
+  const getLevelText = (level: number) => {
+    switch (level) {
+      case 2: return '대본사';
+      case 3: return '본사';
+      case 4: return '부본사';
+      case 5: return '총판';
+      case 6: return '매장';
+      default: return '알 수 없음';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <LoadingSpinner />
+      </div>
+    );
   }
 
-  const filteredData = settlements.filter(settlement => {
-    const matchesType = settlementType === 'all' || settlement.settlement_type === settlementType;
-    const matchesSearch = searchTerm === '' || 
-      settlement.partner?.nickname?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesType && matchesSearch;
-  });
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-100">파트너별 수수료 정산</h1>
-          <p className="text-sm text-slate-400">파트너별 카지노/슬롯 롤링/루징 정산 관리</p>
+        <div>
+          <h1 className="text-2xl text-white mb-2">파트너별 수수료 정산</h1>
+          <p className="text-slate-400">
+            직속 하위 파트너들에게 지급할 수수료를 확인합니다.
+          </p>
         </div>
-        <Button onClick={handleAutoSettlement} disabled={refreshing} className="btn-premium-primary">
-          <Calculator className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-          자동 정산
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
+            새로고침
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            엑셀 내보내기
+          </Button>
+        </div>
       </div>
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         <MetricCard
           title="롤링 수수료"
           value={`₩${stats.totalRollingCommission.toLocaleString()}`}
-          subtitle="총 롤링"
-          icon={Calculator}
+          subtitle="↑ 베팅 기반 수수료"
+          icon={TrendingUp}
+          color="blue"
+        />
+        <MetricCard
+          title="죽장 수수료"
+          value={`₩${stats.totalLosingCommission.toLocaleString()}`}
+          subtitle="↑ 손실 기반 수수료"
+          icon={BadgeDollarSign}
           color="purple"
         />
-        
         <MetricCard
-          title="루징 수수료"
-          value={`₩${stats.totalLosingCommission.toLocaleString()}`}
-          subtitle="총 루징"
-          icon={TrendingDown}
-          color="amber"
+          title="이체 수수료"
+          value={`₩${stats.totalWithdrawalCommission.toLocaleString()}`}
+          subtitle="↑ 출금 기반 수수료"
+          icon={Wallet}
+          color="emerald"
         />
-        
         <MetricCard
-          title="총 베팅액"
-          value={`₩${stats.totalBetAmount.toLocaleString()}`}
-          subtitle="누적 베팅"
-          icon={TrendingUp}
-          color="green"
-        />
-        
-        <MetricCard
-          title="평균 수수료율"
-          value={`${stats.avgCommissionRate.toFixed(2)}%`}
-          subtitle="전체 평균"
+          title="총 수수료"
+          value={`₩${stats.totalCommission.toLocaleString()}`}
+          subtitle="↑ 전체 수수료 합계"
           icon={Calculator}
-          color="cyan"
-        />
-        
-        <MetricCard
-          title="대기 중"
-          value={`${stats.pendingSettlements}건`}
-          subtitle="처리 대기"
-          icon={RefreshCw}
-          color="amber"
-        />
-        
-        <MetricCard
-          title="처리 완료"
-          value={`${stats.completedSettlements}건`}
-          subtitle="정산 완료"
-          icon={TrendingUp}
-          color="green"
+          color="orange"
         />
       </div>
 
-      {/* 메인 컨텐츠 */}
+      {/* 수수료 테이블 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5" />
-            파트너별 수수료 정산 내역
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* 필터 - 간소화 */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Label className="text-slate-300 whitespace-nowrap">기간</Label>
-                <Select value={periodFilter} onValueChange={setPeriodFilter}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="today">오늘</SelectItem>
-                    <SelectItem value="week">최근 7일</SelectItem>
-                    <SelectItem value="month">최근 30일</SelectItem>
-                    <SelectItem value="custom">직접 설정</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <CardTitle>하위 파트너별 수수료 상세</CardTitle>
+              <CardDescription>
+                총 {stats.partnerCount}명의 하위 파트너 수수료 내역
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">오늘</SelectItem>
+                  <SelectItem value="yesterday">어제</SelectItem>
+                  <SelectItem value="week">최근 7일</SelectItem>
+                  <SelectItem value="month">이번 달</SelectItem>
+                  <SelectItem value="custom">직접 선택</SelectItem>
+                </SelectContent>
+              </Select>
 
-              {periodFilter === 'custom' && (
+              {periodFilter === "custom" && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-64">
-                      <Calendar className="h-4 w-4 mr-2" />
+                    <Button variant="outline" className="w-[280px] justify-start text-left">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
                       {dateRange?.from ? (
                         dateRange.to ? (
-                          `${dateRange.from.toLocaleDateString()} - ${dateRange.to.toLocaleDateString()}`
+                          <>
+                            {format(dateRange.from, "PPP", { locale: ko })} -{" "}
+                            {format(dateRange.to, "PPP", { locale: ko })}
+                          </>
                         ) : (
-                          dateRange.from.toLocaleDateString()
+                          format(dateRange.from, "PPP", { locale: ko })
                         )
                       ) : (
-                        "날짜 선택"
+                        <span>날짜를 선택하세요</span>
                       )}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <CalendarComponent
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
                       initialFocus
                       mode="range"
                       defaultMonth={dateRange?.from}
                       selected={dateRange}
                       onSelect={setDateRange}
                       numberOfMonths={2}
+                      locale={ko}
                     />
                   </PopoverContent>
                 </Popover>
               )}
-
-              <div className="flex items-center gap-2">
-                <Label className="text-slate-300 whitespace-nowrap">구분</Label>
-                <Select value={settlementType} onValueChange={setSettlementType}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">전체</SelectItem>
-                    <SelectItem value="rolling">롤링</SelectItem>
-                    <SelectItem value="losing">루징</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2 flex-1">
-                <Search className="h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="파트너 검색..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="max-w-xs"
-                />
-              </div>
-
-              <Button onClick={handleExportExcel} size="sm" variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                엑셀 다운로드
-              </Button>
             </div>
-
-            {/* 정산 테이블 - 검색 기능 비활성화 */}
-            <DataTable
-              enableSearch={false}
-              columns={[
-                {
-                  header: "파트너",
-                  accessorKey: "partner",
-                  cell: ({ row }) => (
-                    <div>
-                      <p className="font-medium">{row.original.partner?.nickname}</p>
-                      <p className="text-sm text-slate-500">레벨 {row.original.partner?.level}</p>
-                    </div>
-                  )
-                },
-                {
-                  header: "정산 타입",
-                  accessorKey: "settlement_type",
-                  cell: ({ row }) => (
-                    <Badge variant={row.original.settlement_type === 'rolling' ? 'default' : 'secondary'}>
-                      {row.original.settlement_type === 'rolling' ? '롤링' : '루징'}
-                    </Badge>
-                  )
-                },
-                {
-                  header: "정산 기간",
-                  cell: ({ row }) => (
-                    <div className="text-sm">
-                      <p>{row.original.period_start}</p>
-                      <p className="text-slate-500">~ {row.original.period_end}</p>
-                    </div>
-                  )
-                },
-                {
-                  header: "베팅 금액",
-                  accessorKey: "total_bet_amount",
-                  cell: ({ row }) => (
-                    <span className="font-medium">
-                      ₩{parseFloat(row.original.total_bet_amount).toLocaleString()}
-                    </span>
-                  )
-                },
-                {
-                  header: "당첨 금액",
-                  accessorKey: "total_win_amount",
-                  cell: ({ row }) => (
-                    <span className="font-medium">
-                      ₩{parseFloat(row.original.total_win_amount).toLocaleString()}
-                    </span>
-                  )
-                },
-                {
-                  header: "수수료율",
-                  accessorKey: "commission_rate",
-                  cell: ({ row }) => (
-                    <span className="font-medium">
-                      {row.original.commission_rate}%
-                    </span>
-                  )
-                },
-                {
-                  header: "수수료 금액",
-                  accessorKey: "commission_amount",
-                  cell: ({ row }) => (
-                    <span className="font-semibold text-green-600">
-                      ₩{parseFloat(row.original.commission_amount).toLocaleString()}
-                    </span>
-                  )
-                },
-                {
-                  header: "상태",
-                  accessorKey: "status",
-                  cell: ({ row }) => (
-                    <Badge variant={row.original.status === 'pending' ? 'destructive' : 'default'}>
-                      {row.original.status === 'pending' ? '대기' : '완료'}
-                    </Badge>
-                  )
-                },
-                {
-                  header: "처리일시",
-                  accessorKey: "processed_at",
-                  cell: ({ row }) => row.original.processed_at ? 
-                    new Date(row.original.processed_at).toLocaleString() : '-'
-                },
-                {
-                  header: "작업",
-                  cell: ({ row }) => (
-                    <div className="flex items-center gap-2">
-                      {row.original.status === 'pending' && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => handleSettlementAction(row.original.id, 'approve')}
-                            className="h-8 px-3"
-                          >
-                            승인
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSettlementAction(row.original.id, 'reject')}
-                            className="h-8 px-3"
-                          >
-                            거절
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  )
-                }
-              ]}
-              data={filteredData}
-            />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* 자동 정산 계산 정보 다이얼로그 */}
-      <Dialog open={showCalculationDialog} onOpenChange={setShowCalculationDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-slate-900 border-slate-700">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-100">
-              <Info className="h-5 w-5 text-cyan-400" />
-              자동 정산 계산 정보
-            </DialogTitle>
-            <DialogDescription className="text-slate-400">
-              정산 내역의 계산식과 상세 정보를 확인할 수 있습니다.
-            </DialogDescription>
-          </DialogHeader>
-
-          {calculationInfo && (
-            <div className="space-y-6 py-4">
-              {/* 요약 */}
-              <div className="grid grid-cols-3 gap-4">
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="pt-6">
-                    <div className="text-center">
-                      <p className="text-sm text-slate-400 mb-1">총 정산 건수</p>
-                      <p className="text-2xl font-bold text-cyan-400">{calculationInfo.totalCount}건</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="pt-6">
-                    <div className="text-center">
-                      <p className="text-sm text-slate-400 mb-1">롤링 정산</p>
-                      <p className="text-2xl font-bold text-purple-400">{calculationInfo.rolling.count}건</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="pt-6">
-                    <div className="text-center">
-                      <p className="text-sm text-slate-400 mb-1">루징 정산</p>
-                      <p className="text-2xl font-bold text-amber-400">{calculationInfo.losing.count}건</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* 롤링 수수료 */}
-              {calculationInfo.rolling.count > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-100">롤링 수수료</h3>
-                    <Badge className="bg-purple-500 text-white">
-                      총 ₩{calculationInfo.rolling.totalCommission.toLocaleString()}
-                    </Badge>
-                  </div>
-                  <div className="bg-slate-800/30 p-3 rounded border border-slate-700">
-                    <p className="text-sm text-slate-300 mb-2">
-                      <span className="text-cyan-400">계산식:</span> {calculationInfo.rolling.formula}
-                    </p>
-                    <div className="space-y-2">
-                      {calculationInfo.rolling.items.map((item: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between text-sm bg-slate-800/50 p-2 rounded">
-                          <span className="text-slate-300">{item.partner}</span>
-                          <div className="flex items-center gap-3 text-slate-400">
-                            <span>베팅: ₩{item.betAmount.toLocaleString()}</span>
-                            <span>×</span>
-                            <span>{item.rate}%</span>
-                            <span>=</span>
-                            <span className="text-green-400 font-semibold">₩{item.commission.toLocaleString()}</span>
-                          </div>
+        </CardHeader>
+        <CardContent>
+          {commissions.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <AlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>조회된 하위 파트너가 없습니다.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-700">
+                    <th className="text-left p-3 text-slate-400">파트너</th>
+                    <th className="text-left p-3 text-slate-400">등급</th>
+                    <th className="text-right p-3 text-slate-400">베팅액</th>
+                    <th className="text-right p-3 text-slate-400">롤링 수수료</th>
+                    <th className="text-right p-3 text-slate-400">죽장 수수료</th>
+                    <th className="text-right p-3 text-slate-400">이체 수수료</th>
+                    <th className="text-right p-3 text-slate-400">총 수수료</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commissions.map((comm) => (
+                    <tr key={comm.partner_id} className="border-b border-slate-800 hover:bg-slate-800/30">
+                      <td className="p-3">
+                        <div>
+                          <p className="text-white">{comm.partner_nickname}</p>
+                          <p className="text-xs text-slate-400">{comm.partner_username}</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 루징 수수료 */}
-              {calculationInfo.losing.count > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-100">루징 수수료</h3>
-                    <Badge className="bg-amber-500 text-white">
-                      총 ₩{calculationInfo.losing.totalCommission.toLocaleString()}
-                    </Badge>
-                  </div>
-                  <div className="bg-slate-800/30 p-3 rounded border border-slate-700">
-                    <p className="text-sm text-slate-300 mb-2">
-                      <span className="text-cyan-400">계산식:</span> {calculationInfo.losing.formula}
-                    </p>
-                    <div className="space-y-2">
-                      {calculationInfo.losing.items.map((item: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between text-sm bg-slate-800/50 p-2 rounded">
-                          <span className="text-slate-300">{item.partner}</span>
-                          <div className="flex items-center gap-2 text-slate-400">
-                            <span>(₩{item.betAmount.toLocaleString()} - ₩{item.winAmount.toLocaleString()})</span>
-                            <span>×</span>
-                            <span>{item.rate}%</span>
-                            <span>=</span>
-                            <span className="text-green-400 font-semibold">₩{item.commission.toLocaleString()}</span>
-                          </div>
+                      </td>
+                      <td className="p-3">
+                        <Badge variant="outline">{getLevelText(comm.partner_level)}</Badge>
+                      </td>
+                      <td className="p-3 text-right text-slate-300">
+                        ₩{comm.total_bet_amount.toLocaleString()}
+                      </td>
+                      <td className="p-3 text-right">
+                        <div>
+                          <p className="text-blue-400">₩{comm.rolling_commission.toLocaleString()}</p>
+                          <p className="text-xs text-slate-500">{comm.commission_rolling}%</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 총계 */}
-              <div className="border-t border-slate-700 pt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-semibold text-slate-100">총 정산 수수료</span>
-                  <span className="text-2xl font-bold text-green-400">
-                    ₩{calculationInfo.totalCommission.toLocaleString()}
-                  </span>
-                </div>
-              </div>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div>
+                          <p className="text-purple-400">₩{comm.losing_commission.toLocaleString()}</p>
+                          <p className="text-xs text-slate-500">{comm.commission_losing}%</p>
+                        </div>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div>
+                          <p className="text-green-400">₩{comm.withdrawal_commission.toLocaleString()}</p>
+                          <p className="text-xs text-slate-500">{comm.withdrawal_fee}%</p>
+                        </div>
+                      </td>
+                      <td className="p-3 text-right">
+                        <p className="text-orange-400 font-mono">₩{comm.total_commission.toLocaleString()}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-800/50 border-t-2 border-slate-600">
+                    <td colSpan={3} className="p-3 text-white">총합</td>
+                    <td className="p-3 text-right text-blue-400 font-mono">
+                      ₩{stats.totalRollingCommission.toLocaleString()}
+                    </td>
+                    <td className="p-3 text-right text-purple-400 font-mono">
+                      ₩{stats.totalLosingCommission.toLocaleString()}
+                    </td>
+                    <td className="p-3 text-right text-green-400 font-mono">
+                      ₩{stats.totalWithdrawalCommission.toLocaleString()}
+                    </td>
+                    <td className="p-3 text-right text-orange-400 font-mono">
+                      ₩{stats.totalCommission.toLocaleString()}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
-export default CommissionSettlement;

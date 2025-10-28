@@ -64,6 +64,7 @@ export function SystemSettings({ user, initialTab = "general" }: SystemSettingsP
 
   // 커미션 설정 상태
   const [commissionSettings, setCommissionSettings] = useState({
+    settlement_method: 'direct_subordinate', // 정산 방식
     default_rolling_commission: 0.5,
     default_losing_commission: 5.0,
     default_withdrawal_fee: 1.0,
@@ -780,6 +781,73 @@ export function SystemSettings({ user, initialTab = "general" }: SystemSettingsP
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* 정산 방식 선택 */}
+              <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/10 dark:to-blue-900/10 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <Activity className="h-5 w-5 text-purple-500 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-purple-900 dark:text-purple-100 mb-2">정산 방식 선택</h4>
+                      <p className="text-sm text-purple-700 dark:text-purple-300 mb-3">
+                        파트너 수수료 정산 계산 방식을 선택합니다. 선택한 방식이 모든 정산 페이지에 적용됩니다.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <Select 
+                    value={commissionSettings.settlement_method} 
+                    onValueChange={(value) => setCommissionSettings(prev => ({ ...prev, settlement_method: value }))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="정산 방식 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="direct_subordinate">
+                        <div className="space-y-1">
+                          <div className="font-medium">직속 하위 정산 (권장)</div>
+                          <div className="text-xs text-muted-foreground">
+                            내 총 수입 - 직속 하위 지급액 = 순수익
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="differential">
+                        <div className="space-y-1">
+                          <div className="font-medium">차등 정산</div>
+                          <div className="text-xs text-muted-foreground">
+                            상위가 하위 수수료 제외한 차액만 받음
+                          </div>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* 정산 방식 설명 */}
+                  <div className="mt-4 p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg text-sm space-y-2">
+                    {commissionSettings.settlement_method === 'direct_subordinate' ? (
+                      <>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">📊 직속 하위 정산 방식</p>
+                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 ml-4">
+                          <li>• 각 파트너는 모든 하위 사용자로부터 전체 수수료를 받음</li>
+                          <li>• 직속 하위 파트너들에게 그들의 수수료를 지급</li>
+                          <li>• 순수익 = 총 수입 - 직속 하위 지급액</li>
+                          <li>• 예: 본사가 100만원 수입 → 부본사에 60만원 지급 → 순수익 40만원</li>
+                        </ul>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">📉 차등 정산 방식</p>
+                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 ml-4">
+                          <li>• 상위가 하위의 수수료를 제외한 차액만 받음</li>
+                          <li>• 각 계층이 고정된 차액을 받음</li>
+                          <li>• 예: 매장 0.1% → 총판 0.2% → 부본사 0.3%</li>
+                          <li>• 베팅 100만원 시: 매장 1천원, 총판 1천원, 부본사 1천원</li>
+                        </ul>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex items-start gap-3">
                   <Globe className="h-5 w-5 text-blue-500 mt-0.5" />

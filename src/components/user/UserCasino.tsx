@@ -443,8 +443,8 @@ export function UserCasino({ user, onRouteChange }: UserCasinoProps) {
           </div>
         </div>
 
-        {/* 제공사 선택 */}
-        <div className="luxury-card rounded-3xl p-8 border-2 border-yellow-600/20">
+        {/* 제공사 선택 - 모바일에서는 숨김 */}
+        <div className="hidden lg:block luxury-card rounded-3xl p-8 border-2 border-yellow-600/20">
           <GameProviderSelector
             selectedProvider={selectedProvider}
             onProviderChange={setSelectedProvider}

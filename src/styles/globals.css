@@ -679,6 +679,62 @@ html {
   50% { opacity: 1; }
 }
 
+/* VIP 럭셔리 카드 스타일 */
+.luxury-card {
+  background: rgba(26, 31, 46, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 215, 0, 0.1) inset;
+  transition: all 0.3s ease;
+}
+
+.luxury-card:hover {
+  background: rgba(26, 31, 46, 0.85);
+  border-color: rgba(255, 215, 0, 0.3);
+  box-shadow: 
+    0 6px 24px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 215, 0, 0.15) inset;
+}
+
+/* VIP 배지 스타일 */
+.vip-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+/* 골든 테두리 */
+.golden-border {
+  border: 2px solid rgba(255, 215, 0, 0.5);
+  box-shadow: 
+    0 0 20px rgba(255, 215, 0, 0.3),
+    0 0 0 1px rgba(255, 215, 0, 0.2) inset;
+}
+
+/* 골든 텍스트 */
+.gold-text {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #ff6a00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 네온 글로우 효과 */
+.neon-glow {
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.8);
+}
+
+/* 잭팟 카운터 효과 */
+.jackpot-counter {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.025em;
+}
+
 /* 배경 슬라이드 애니메이션 */
 .animate-shimmer {
   animation: shimmerSlide 3s linear infinite;
