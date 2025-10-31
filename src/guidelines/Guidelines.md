@@ -57,12 +57,6 @@ PATCH /api/account/balance
 - 30초 이상 간격으로 호출 권장
 - 최근 2일 이내 업데이트된 회원만 조회됨
 
-**GMS 시스템 사용:**
-- **level 2 user, level 3-7**: 이 API를 사용하여 username 매핑으로 users/partners 테이블 동기화
-- 30초마다 자동 동기화 (`BalanceSyncManager` 컴포넌트)
-- **⚠️ 중요**: username이 있는 데이터만 업데이트, 없는 username은 무시 (0으로 업데이트 안함)
-- DB에 존재하는 username만 업데이트됨
-
 ---
 
 ### 1.4 계정 입금
@@ -155,11 +149,7 @@ GET /api/info
 
 **Signature:** `md5(opcode + secret_key)`
 
-**용도:** opcode 잔고 조회 / name / users balance
-
-**GMS 시스템 사용:**
-- **level 1 (시스템관리자), level 2 (본사)**: 이 API를 사용하여 보유금 동기화
-- 30초마다 자동 동기화 (`BalanceSyncManager` 컴포넌트)
+**용도:** opcode 잔고 조회
 
 ---
 
@@ -180,7 +170,7 @@ GET /api/account/balance
 
 **Signature:** `md5(opcode + username + token + secret_key)`
 
-**용도:** 회원 보유금 조회
+**용도:** 보유금 조회
 ---
 
 ## 2. 게임 관련 API
@@ -276,6 +266,63 @@ GET /api/game/detail
 **참고:** 모든 게임사가 상세 데이터를 지원하지는 않음
 
 ---
+
+### 2.5 에볼 배팅 금액 제한
+► URL : https://api.invest-ho.com/api/game/limit
+► Method : PUT
+► Content-type : application/json
+► Signatuere : tolower( md5 ( opcode + secret_key ) )
+► Body
+► {
+► "opcode" : " 발급받은 OPCODE",
+► "signature" : " 조합된 signature 값 ＂
+► “limit” : “ 제한할 배팅 금액 ＂
+► }
+► 예)
+► Result
+► 정상 응답
+► 그 외 비정상 응답의 경우 응답페이지 참조
+► 결과는 Result 로 true / false 로 나오며, 적용된 데이터 확인은 아래 limit 데이터를
+확인하시면 됩니다.
+
+
+### 2.6 에볼루션 최대배팅금 셋팅
+► URL : https://api.invest-ho.com/api/game/limit
+► Method : PUT
+► Content-type : application/json
+► Signatuere : tolower( md5 ( opcod + secret_key ) )
+► Body
+► {
+► "opcode" : "발급받은 OPCODE",
+► “users" : [“셋팅하고자하는 유저이름을 배열로 입력 ”],
+► “limit" : 셋팅하고자하는 최대베팅금액(최대 1억) 입력,
+► “signature" : ＂조합된 signature 값＂
+► }
+► 예)
+► Result
+► 정상응답
+► 그 외 비정상 응답의 경우 응답페이지 참조
+► Users 데이터를 미입력 시 , 본사가 바뀌므로 꼭 users에 해당유저의 값을 넣어주세요.
+
+
+### 2.7 에볼루션 최대배팅 설정 값 가져오기
+► URL : https://api.invest-ho.com/api/game/limit
+► Method : GET
+► Content-type : application/json
+► Signatuere : tolower( md5 ( opcod + secret_key ) )
+► Body
+► {
+► "opcode" : "발급받은 OPCODE",
+► “signature" : ＂조합된 signature 값＂
+► }
+► 예)
+► Result
+► 정상응답
+► 그 외 비정상 응답의 경우 응답페이지 참조
+► 매장 설정 값은 [limit]
+유저들 설정 값은 [users] 배열 정보로 받아 보실 수 있습니다.
+
+
 
 ## 3. 주의사항
 
@@ -425,8 +472,7 @@ method : POST
 ### websocket  사용 정보
 1. 사용자페이지 <-> 관리자페이지 간 모든 연동
 2. 외부 API와 연동되는 기능은 모두 외부 API와 연동과 함께 실시간(websocket) 업데이트
-3. websocket add : wss://vi8282.com/ws
-4. **Heartbeat 사용**: 30초 간격으로 ping/pong 전송하여 연결 유지 및 실시간 안정성 보장
+3. websocket add : wws://vi8282.com/ws
 
 ### 구현 방법
 1. api 응답 직접 파싱 방법 사용(josb 사용 금지)
@@ -440,9 +486,4 @@ method : POST
 ### 기초정보
 VITE_SUPABASE_URL=https://nzuzzmaiuybzyndptaba.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im56dXp6bWFpdXlienluZHB0YWJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyMDM5NDMsImV4cCI6MjA3NDc3OTk0M30.XLuJJG-KhlmRrFYsIZsF_iINbJ9iWPhJ3q4Cby1_WJU
-Service_role_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im56dXp6bWFpdXlienluZHB0YWJhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTIwMzk0MywiZXhwIjoyMDc0Nzc5OTQzfQ.ITQXw1UhEdqMvTNcWFi1WJVO4npUDCCG7G96EkjQMhI
-
-
-
-
-
+Service_role_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im56dXp6bWFpdXlienluZHB0YWJhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTIwMzk0MywiZXhwIjoyMDc0Nzc5OTQzfQ.ITQXw1UhEdqMvTNcWFi1WJVO4npUDCCG7G96EkjQMh

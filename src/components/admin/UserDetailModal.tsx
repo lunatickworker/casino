@@ -19,9 +19,12 @@ import {
   TrendingUp,
   ArrowDownToLine,
   Gamepad2,
-  X
+  X,
+  Settings
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 
 interface UserDetailModalProps {
   user: any;
@@ -66,6 +69,11 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
     gameCount: 0,
     winRate: 0
   });
+
+  // 에볼루션 설정 state
+  const [evolutionLimit, setEvolutionLimit] = useState<number>(100000000); // 기본값 1억
+  const [currentEvolutionLimit, setCurrentEvolutionLimit] = useState<number | null>(null);
+  const [evolutionLoading, setEvolutionLoading] = useState(false);
 
   // 기본 통계 계산
   const calculateStats = async () => {
@@ -351,6 +359,111 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
     }
   };
 
+  // 에볼루션 설정 조회
+  const fetchEvolutionLimit = async () => {
+    try {
+      setEvolutionLoading(true);
+      
+      const { md5Hash } = await import('../../lib/investApi');
+      
+      // API 설정 조회 - partners 테이블에서 직접 조회
+      const { data: partnerData, error: partnerError } = await supabase
+        .from('partners')
+        .select('opcode, secret_key')
+        .eq('id', user.referrer_id)
+        .single();
+
+      if (partnerError || !partnerData?.opcode || !partnerData?.secret_key) {
+        toast.error('파트너 API 설정을 찾을 수 없습니다.');
+        console.error('Partner data error:', partnerError, partnerData);
+        return;
+      }
+
+      const signature = md5Hash(partnerData.opcode + partnerData.secret_key);
+
+      const response = await fetch('https://vi8282.com/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: 'https://api.invest-ho.com/api/game/limit',
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          body: {
+            opcode: partnerData.opcode,
+            signature: signature
+          }
+        })
+      });
+
+      const result = await response.json();
+      const data = result.DATA || result;
+      const limit = data.limit || 100000000;
+      
+      setCurrentEvolutionLimit(limit);
+      setEvolutionLimit(limit);
+
+    } catch (error: any) {
+      console.error('에볼루션 설정 조회 오류:', error);
+      toast.error('설정을 불러오는데 실패했습니다.');
+    } finally {
+      setEvolutionLoading(false);
+    }
+  };
+
+  // 에볼루션 설정 저장
+  const saveEvolutionLimit = async () => {
+    try {
+      setEvolutionLoading(true);
+
+      const { md5Hash } = await import('../../lib/investApi');
+      
+      // API 설정 조회 - partners 테이블에서 직접 조회
+      const { data: partnerData, error: partnerError } = await supabase
+        .from('partners')
+        .select('opcode, secret_key')
+        .eq('id', user.referrer_id)
+        .single();
+
+      if (partnerError || !partnerData?.opcode || !partnerData?.secret_key) {
+        toast.error('파트너 API 설정을 찾을 수 없습니다.');
+        return;
+      }
+
+      const signature = md5Hash(partnerData.opcode + partnerData.secret_key);
+
+      const response = await fetch('https://vi8282.com/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: 'https://api.invest-ho.com/api/game/limit',
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: {
+            opcode: partnerData.opcode,
+            users: [user.username],
+            limit: evolutionLimit,
+            signature: signature
+          }
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.RESULT === true || result.result === true) {
+        toast.success('설정이 저장되었습니다.');
+        setCurrentEvolutionLimit(evolutionLimit);
+      } else {
+        toast.error('설정 저장에 실패했습니다.');
+      }
+
+    } catch (error: any) {
+      console.error('에볼루션 설정 저장 오류:', error);
+      toast.error('설정을 저장하는데 실패했습니다.');
+    } finally {
+      setEvolutionLoading(false);
+    }
+  };
+
   // 탭 변경 시 데이터 로드
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -363,6 +476,8 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
       fetchBettingHistory();
     } else if (activeTab === "pattern") {
       analyzePattern();
+    } else if (activeTab === "evolution") {
+      fetchEvolutionLimit();
     }
   }, [activeTab, isOpen, user]);
 
@@ -423,24 +538,45 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full px-6">
-          <TabsList className="grid w-full grid-cols-4 glass-card h-9">
-            <TabsTrigger value="basic" className="flex items-center gap-1.5 text-xs">
-              <User className="h-3 w-3" />
-              기본정보
-            </TabsTrigger>
-            <TabsTrigger value="transactions" className="flex items-center gap-1.5 text-xs">
-              <Wallet className="h-3 w-3" />
-              입출금내역
-            </TabsTrigger>
-            <TabsTrigger value="betting" className="flex items-center gap-1.5 text-xs">
-              <Gamepad2 className="h-3 w-3" />
-              베팅내역
-            </TabsTrigger>
-            <TabsTrigger value="pattern" className="flex items-center gap-1.5 text-xs">
-              <Brain className="h-3 w-3" />
-              AI 게임패턴
-            </TabsTrigger>
-          </TabsList>
+          <div className="bg-slate-800/30 rounded-xl p-1.5 border border-slate-700/40">
+            <TabsList className="bg-transparent h-auto p-0 border-0 gap-2 w-full grid grid-cols-5">
+              <TabsTrigger 
+                value="basic" 
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500/20 data-[state=active]:to-cyan-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/20 data-[state=active]:border data-[state=active]:border-blue-400/30 transition-all duration-200"
+              >
+                <User className="h-3 w-3 mr-1.5" />
+                기본정보
+              </TabsTrigger>
+              <TabsTrigger 
+                value="transactions" 
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-500/20 data-[state=active]:to-emerald-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/20 data-[state=active]:border data-[state=active]:border-green-400/30 transition-all duration-200"
+              >
+                <Wallet className="h-3 w-3 mr-1.5" />
+                입출금내역
+              </TabsTrigger>
+              <TabsTrigger 
+                value="betting" 
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20 data-[state=active]:border data-[state=active]:border-purple-400/30 transition-all duration-200"
+              >
+                <Gamepad2 className="h-3 w-3 mr-1.5" />
+                베팅내역
+              </TabsTrigger>
+              <TabsTrigger 
+                value="pattern" 
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-orange-500/20 data-[state=active]:to-amber-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/20 data-[state=active]:border data-[state=active]:border-orange-400/30 transition-all duration-200"
+              >
+                <Brain className="h-3 w-3 mr-1.5" />
+                AI 게임패턴
+              </TabsTrigger>
+              <TabsTrigger 
+                value="evolution" 
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-red-500/20 data-[state=active]:to-rose-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-500/20 data-[state=active]:border data-[state=active]:border-red-400/30 transition-all duration-200"
+              >
+                <Settings className="h-3 w-3 mr-1.5" />
+                에볼루션 설정
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* 기본정보 탭 */}
           <TabsContent value="basic" className="max-h-[calc(92vh-140px)] overflow-y-auto pr-2 pt-3">
@@ -844,6 +980,103 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                           <p className="text-xs leading-relaxed">{insight}</p>
                         </div>
                       ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* 에볼루션 설정 탭 */}
+          <TabsContent value="evolution" className="max-h-[calc(92vh-140px)] overflow-y-auto pr-2 pt-3">
+            {evolutionLoading ? (
+              <LoadingSpinner />
+            ) : (
+              <div className="space-y-4 p-4">
+                <Card className="glass-card">
+                  <CardContent className="pt-6 pb-6 px-6">
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+                      <Settings className="h-4 w-4 text-red-400" />
+                      <h3 className="text-sm">에볼루션 최대배팅금 설정</h3>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* 현재 설정 값 */}
+                      {currentEvolutionLimit !== null && (
+                        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-400">현재 설정</span>
+                            <span className="font-mono text-blue-400">
+                              {currentEvolutionLimit.toLocaleString()}원
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 회원 정보 */}
+                      <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
+                        <div className="text-xs text-slate-400 mb-2">회원 아이디</div>
+                        <div className="font-mono text-white">{user.username}</div>
+                      </div>
+
+                      {/* 최대배팅금 설정 */}
+                      <div>
+                        <Label className="text-xs text-slate-400 mb-2">최대배팅금액</Label>
+                        <Input
+                          type="number"
+                          value={evolutionLimit}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0;
+                            setEvolutionLimit(value);
+                          }}
+                          className="bg-slate-800/50 border-slate-700 text-white font-mono"
+                          placeholder="금액 입력"
+                        />
+                        <p className="text-xs text-slate-500 mt-1.5">
+                          {evolutionLimit.toLocaleString()}원
+                        </p>
+                      </div>
+
+                      {/* 금액 단축 버튼 */}
+                      <div className="grid grid-cols-4 gap-2">
+                        {[
+                          { value: 100000, label: '1십만' },
+                          { value: 500000, label: '5십만' },
+                          { value: 1000000, label: '1백만' },
+                          { value: 5000000, label: '5백만' },
+                          { value: 10000000, label: '1천만' },
+                          { value: 50000000, label: '5천만' },
+                          { value: 100000000, label: '10천만' }
+                        ].map((item) => (
+                          <Button
+                            key={item.value}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEvolutionLimit(prev => prev + item.value)}
+                            className="bg-slate-800/50 border-slate-700 hover:bg-slate-700 text-xs font-mono"
+                          >
+                            {item.label}
+                          </Button>
+                        ))}
+                      </div>
+
+                      {/* 저장 버튼 */}
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setEvolutionLimit(currentEvolutionLimit || 100000000)}
+                          className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-700/50"
+                        >
+                          초기화
+                        </Button>
+                        <Button
+                          onClick={saveEvolutionLimit}
+                          disabled={evolutionLoading}
+                          className="flex-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700"
+                        >
+                          {evolutionLoading ? '저장 중...' : '저장'}
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

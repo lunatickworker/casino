@@ -841,20 +841,34 @@ export function TransactionManagement({ user }: TransactionManagementProps) {
       <div className="glass-card rounded-xl p-6">
         {/* 탭 리스트 */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-slate-800/50 p-1 rounded-lg">
-            <TabsTrigger value="deposit-request" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">
-              입금 신청
-            </TabsTrigger>
-            <TabsTrigger value="withdrawal-request" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">
-              출금 신청
-            </TabsTrigger>
-            <TabsTrigger value="completed-history" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">
-              입출금 내역
-            </TabsTrigger>
-            <TabsTrigger value="admin-history" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white">
-              관리자 입출금 내역
-            </TabsTrigger>
-          </TabsList>
+          <div className="bg-slate-800/30 rounded-xl p-1.5 border border-slate-700/40">
+            <TabsList className="bg-transparent h-auto p-0 border-0 gap-2 w-full grid grid-cols-4">
+              <TabsTrigger 
+                value="deposit-request"
+                className="bg-transparent text-slate-400 rounded-lg px-6 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500/20 data-[state=active]:to-cyan-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/20 data-[state=active]:border data-[state=active]:border-blue-400/30 transition-all duration-200"
+              >
+                입금 신청
+              </TabsTrigger>
+              <TabsTrigger 
+                value="withdrawal-request"
+                className="bg-transparent text-slate-400 rounded-lg px-6 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20 data-[state=active]:border data-[state=active]:border-purple-400/30 transition-all duration-200"
+              >
+                출금 신청
+              </TabsTrigger>
+              <TabsTrigger 
+                value="completed-history"
+                className="bg-transparent text-slate-400 rounded-lg px-6 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-500/20 data-[state=active]:to-emerald-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/20 data-[state=active]:border data-[state=active]:border-green-400/30 transition-all duration-200"
+              >
+                입출금 내역
+              </TabsTrigger>
+              <TabsTrigger 
+                value="admin-history"
+                className="bg-transparent text-slate-400 rounded-lg px-6 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-orange-500/20 data-[state=active]:to-amber-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/20 data-[state=active]:border data-[state=active]:border-orange-400/30 transition-all duration-200"
+              >
+                관리자 입출금 내역
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* 헤더 및 필터 */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-700/50">

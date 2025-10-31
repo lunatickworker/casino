@@ -1,0 +1,1 @@
+import{j as a}from"./react-core-CwM-CeLv.js";import{a9 as o,aa as t,ab as s}from"./radix-ui-SX2QAG6c.js";function i({...l}){return a.jsx(o,{"data-slot":"collapsible",...l})}function n({...l}){return a.jsx(s,{"data-slot":"collapsible-trigger",...l})}function p({...l}){return a.jsx(t,{"data-slot":"collapsible-content",...l})}export{i as C,p as a,n as b};

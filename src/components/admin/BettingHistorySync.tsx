@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { getGameHistory } from '../../lib/investApi';
+import { supabaseAdmin } from '../../lib/supabaseAdmin';
+import { getGameHistory, getApiConfig, getUserBalanceWithConfig } from '../../lib/investApi';
 import * as opcodeHelper from '../../lib/opcodeHelper';
 import { Partner } from '../../types';
 
@@ -9,13 +10,45 @@ interface BettingHistorySyncProps {
 }
 
 /**
- * ✅ 4분 이상 베팅이 없는 active 세션을 ended로 변경
+ * ✅ 60초 이상 last_activity_at 업데이트 없는 active 세션을 auto_ended로 변경
+ * ⚠️ Service Role 사용: RLS 우회
  */
-const checkAndEndInactiveSessions = async () => {
+const checkAndEndInactiveSessions = async (partnerId: string) => {
   try {
-    console.log('🔍 [SESSION-CHECK] 무활동 세션 확인 시작');
+    console.log('🔍 [SESSION-AUTO-END] 비활성 세션 확인 시작');
+    
+    const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
 
-    // 1. 모든 active 세션의 마지막 베팅 시간 확인
+    const { data: endedSessions, error } = await supabaseAdmin
+      .from('game_launch_sessions')
+      .update({ 
+        status: 'auto_ended',
+        ended_at: new Date().toISOString()
+      })
+      .eq('status', 'active')
+      .lt('last_activity_at', sixtySecondsAgo)
+      .select('id, user_id, session_id, last_activity_at');
+
+    if (error) {
+      console.error('❌ [SESSION-AUTO-END] 오류:', error);
+      return;
+    }
+
+    if (endedSessions && endedSessions.length > 0) {
+      console.log(`🔄 [SESSION-AUTO-END] ${endedSessions.length}개 세션 auto_ended`);
+      
+      // 세션 종료된 사용자의 보유금 동기화
+      for (const session of endedSessions) {
+        console.log(`   📍 세션 ID: ${session.session_id}, User: ${session.user_id}, 마지막 활동: ${session.last_activity_at}`);
+        await syncBalanceOnSessionEnd(session.user_id, partnerId);
+      }
+    } else {
+      console.log('✅ [SESSION-AUTO-END] 종료할 비활성 세션 없음');
+    }
+
+    return;
+
+    // 기존 코드 (사용 안함)
     const { data: activeSessions, error: sessionError } = await supabase
       .from('game_launch_sessions')
       .select(`
@@ -238,7 +271,13 @@ const processSingleOpcode = async (
         const winAmount = parseFloat(record.win || record.win_amount || '0');
         const balanceAfter = parseFloat(record.balance || record.balance_after || '0');
         const balanceBefore = balanceAfter - (winAmount - betAmount);
-        const playedAt = record.create_at || record.played_at || record.created_at || new Date().toISOString();
+        const playedAtRaw = record.create_at || record.played_at || record.created_at || new Date().toISOString();
+
+        // ✅ API 시간: UTC를 +09로 잘못 표시 → 타임존 제거 후 +9시간하여 진짜 한국 시간으로 변환
+        // 예: API "2025-10-31T07:59:38+09:00" → UTC 07:59:38 → +9시간 → KST 16:59:38
+        const playedAtUTC = playedAtRaw.replace(/[+-]\d{2}:\d{2}$/, '').replace('Z', ''); // 타임존 제거
+        const playedAtKST = new Date(new Date(playedAtUTC).getTime() + 9 * 60 * 60 * 1000);
+        const playedAt = playedAtKST.toISOString().replace('Z', '+09:00');
 
         // ✅ 개별 INSERT (에러는 조용히 무시)
         const { error } = await supabase
@@ -303,7 +342,7 @@ const processSingleOpcode = async (
       }
       
       // ✅ 베팅 기록 저장 후 세션 상태 확인 및 업데이트
-      await checkAndEndInactiveSessions();
+      await checkAndEndInactiveSessions(partnerId);
     }
 
   } catch (error) {
@@ -402,7 +441,7 @@ export function BettingHistorySync({ user }: BettingHistorySyncProps) {
     }
   };
 
-  // 30초마다 자동 동기화 (단 한 번만 설정)
+  // 30초마다 자동 동기화 + 세션 자동 종료 (단 한 번만 설정)
   useEffect(() => {
     console.log('🎯 [BETTING-SYNC] 자동 동기화 시작');
 
@@ -414,11 +453,13 @@ export function BettingHistorySync({ user }: BettingHistorySyncProps) {
 
     // 즉시 1회 실행
     syncBettingHistory();
+    checkAndEndInactiveSessions(user.id); // ✅ 세션 자동 종료
 
     // 30초마다 실행
     intervalRef.current = setInterval(() => {
       console.log('⏰ [BETTING-SYNC] 30초 타이머 실행:', new Date().toISOString());
       syncBettingHistory();
+      checkAndEndInactiveSessions(user.id); // ✅ 세션 자동 종료
     }, 30000);
 
     return () => {
@@ -432,3 +473,64 @@ export function BettingHistorySync({ user }: BettingHistorySyncProps) {
 
   return null;
 }
+
+/**
+ * ✅ 세션 종료 시 사용자의 보유금 동기화
+ */
+const syncBalanceOnSessionEnd = async (userId: string, partnerId: string) => {
+  try {
+    console.log(`🔄 [BALANCE-SYNC] 세션 종료 시 사용자 보유금 동기화 시작: user_id=${userId}`);
+
+    // 1. 사용자 정보 조회
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('username')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData) {
+      console.error(`❌ [BALANCE-SYNC] 사용자 정보 없음: user_id=${userId}`);
+      return;
+    }
+
+    // 2. API 설정 정보 조회
+    const apiConfig = await getApiConfig(partnerId);
+    if (!apiConfig) {
+      console.error(`❌ [BALANCE-SYNC] API 설정 정보 없음: partner_id=${partnerId}`);
+      return;
+    }
+
+    // 3. 사용자 보유금 조회
+    const balanceResult = await getUserBalanceWithConfig(
+      apiConfig.opcode,
+      userData.username,
+      apiConfig.token,
+      apiConfig.secret_key
+    );
+
+    if (!balanceResult.success || balanceResult.balance === undefined) {
+      console.error(`❌ [BALANCE-SYNC] 사용자 보유금 조회 실패: ${balanceResult.error}`);
+      return;
+    }
+
+    const balance = balanceResult.balance;
+    console.log(`   📍 사용자 보유금: ${balance}`);
+
+    // 4. DB에 보유금 업데이트
+    const { error } = await supabase
+      .from('users')
+      .update({
+        balance: balance
+      })
+      .eq('id', userId);
+
+    if (error) {
+      console.error(`❌ [BALANCE-SYNC] 보유금 업데이트 실패: user_id=${userId}, partner_id=${partnerId}`, error);
+    } else {
+      console.log(`✅ [BALANCE-SYNC] 보유금 업데이트 성공: user_id=${userId}, partner_id=${partnerId}`);
+    }
+
+  } catch (error) {
+    console.error(`❌ [BALANCE-SYNC] 오류: user_id=${userId}, partner_id=${partnerId}`, error);
+  }
+};

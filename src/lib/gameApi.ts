@@ -71,29 +71,65 @@ async function getGames(partnerIdOrFilters?: string | {
 
   console.log('🔍 getGames 호출:', { partnerId, filters });
 
-  // 기본 게임 목록 조회
-  let query = supabase
-    .from('games')
-    .select(`
-      id,
-      provider_id,
-      name,
-      type,
-      status,
-      image_url,
-      demo_available,
-      is_featured,
-      priority,
-      rtp,
-      play_count,
-      created_at,
-      updated_at,
-      game_providers!inner(
+  // partnerId가 있으면 game_status_logs와 조인하여 파트너별 상태 조회
+  let query;
+  
+  if (partnerId) {
+    query = supabase
+      .from('games')
+      .select(`
         id,
+        provider_id,
         name,
-        type
-      )
-    `);
+        type,
+        status,
+        image_url,
+        demo_available,
+        is_featured,
+        priority,
+        rtp,
+        play_count,
+        created_at,
+        updated_at,
+        game_providers!inner(
+          id,
+          name,
+          type
+        ),
+        game_status_logs!left(
+          status,
+          priority,
+          is_featured
+        )
+      `);
+    
+    // game_status_logs의 partner_id 필터
+    query = query.or(`partner_id.eq.${partnerId},partner_id.is.null`, { foreignTable: 'game_status_logs' });
+  } else {
+    // partnerId 없으면 기본 조회
+    query = supabase
+      .from('games')
+      .select(`
+        id,
+        provider_id,
+        name,
+        type,
+        status,
+        image_url,
+        demo_available,
+        is_featured,
+        priority,
+        rtp,
+        play_count,
+        created_at,
+        updated_at,
+        game_providers!inner(
+          id,
+          name,
+          type
+        )
+      `);
+  }
 
   // 타입 필터 먼저 적용 (중요: 카지노/슬롯 분리)
   if (filters?.type) {
@@ -117,11 +153,11 @@ async function getGames(partnerIdOrFilters?: string | {
     console.log('🔍 상태 필터 적용:', filters.status);
   }
 
-  // 정렬: 카지노는 provider_id 순, 슬롯은 name 순
+  // 정렬: priority 높은 순 (신규 게임 상위 노출) → 카지노는 provider_id 순, 슬롯은 name 순
   if (filters?.type === 'casino') {
-    query = query.order('provider_id');
+    query = query.order('priority', { ascending: false }).order('provider_id');
   } else {
-    query = query.order('name');
+    query = query.order('priority', { ascending: false }).order('name');
   }
 
   const { data, error } = await query;
@@ -147,33 +183,62 @@ async function getGames(partnerIdOrFilters?: string | {
     }))
   });
 
-  // 결과 매핑
-  const mappedData = (data || []).map(game => ({
-    id: game.id,
-    provider_id: game.provider_id,
-    name: game.name,
-    type: game.type,
-    status: game.status,
-    image_url: game.image_url,
-    demo_available: game.demo_available,
-    is_featured: game.is_featured || false,
-    priority: game.priority || 0,
-    rtp: game.rtp,
-    play_count: game.play_count || 0,
-    created_at: game.created_at,
-    updated_at: game.updated_at,
-    provider_name: game.game_providers?.name || '알 수 없음'
-  }));
-
-  console.log(`✅ 최종 ${filters?.type || '전체'} 게임:`, {
-    개수: mappedData.length,
-    제공사별_분포: mappedData.reduce((acc: any, g) => {
-      acc[g.provider_name] = (acc[g.provider_name] || 0) + 1;
-      return acc;
-    }, {})
+  // 결과 매핑 - game_status_logs가 있으면 해당 값 사용
+  const mappedData = (data || []).map(game => {
+    // game_status_logs가 배열로 올 수 있으므로 첫 번째 요소 사용
+    const statusLog = Array.isArray(game.game_status_logs) 
+      ? game.game_status_logs[0] 
+      : game.game_status_logs;
+    
+    return {
+      id: game.id,
+      provider_id: game.provider_id,
+      name: game.name,
+      type: game.type,
+      // game_status_logs에 설정이 있으면 해당 값 사용, 없으면 games 테이블의 기본값 사용
+      status: statusLog?.status || game.status,
+      image_url: game.image_url,
+      demo_available: game.demo_available,
+      is_featured: statusLog?.is_featured !== undefined ? statusLog.is_featured : (game.is_featured || false),
+      priority: statusLog?.priority !== undefined ? statusLog.priority : (game.priority || 0),
+      rtp: game.rtp,
+      play_count: game.play_count || 0,
+      created_at: game.created_at,
+      updated_at: game.updated_at,
+      provider_name: game.game_providers?.name || '알 수 없음'
+    };
   });
 
-  return mappedData;
+  // 클라이언트 측에서 추가 정렬 (파트너별 priority 반영)
+  const sortedData = mappedData.sort((a, b) => {
+    // 1. priority 높은 순 (신규 게임 상위)
+    if (b.priority !== a.priority) {
+      return b.priority - a.priority;
+    }
+    
+    // 2. featured 게임 우선
+    if (b.is_featured !== a.is_featured) {
+      return b.is_featured ? 1 : -1;
+    }
+    
+    // 3. 카지노는 provider_id 순, 슬롯은 이름 순
+    if (filters?.type === 'casino') {
+      return a.provider_id - b.provider_id;
+    } else {
+      return a.name.localeCompare(b.name);
+    }
+  });
+
+  console.log(`✅ 최종 ${filters?.type || '전체'} 게임:`, {
+    개수: sortedData.length,
+    제공사별_분포: sortedData.reduce((acc: any, g) => {
+      acc[g.provider_name] = (acc[g.provider_name] || 0) + 1;
+      return acc;
+    }, {}),
+    상위_5개_우선순위: sortedData.slice(0, 5).map(g => ({ name: g.name, priority: g.priority }))
+  });
+
+  return sortedData;
 }
 
 // 게임 상태 업데이트
@@ -291,10 +356,10 @@ async function syncGamesFromAPI(
 
   const gameType = providerData.type;
 
-  // 기존 게임 조회 (ID만 조회하여 성능 최적화)
+  // 기존 게임 조회 (ID와 priority 조회)
   const { data: existingGames, error: fetchError } = await supabase
     .from('games')
-    .select('id')
+    .select('id, priority')
     .eq('provider_id', providerId);
 
   if (fetchError) {
@@ -303,7 +368,13 @@ async function syncGamesFromAPI(
   }
 
   const existingGameIds = new Set(existingGames?.map(game => game.id) || []);
-  console.log(`📊 기존 게임 ${existingGameIds.size}개 확인됨`);
+  
+  // 현재 최대 priority 계산 (신규 게임을 상위에 배치하기 위함)
+  const maxPriority = existingGames && existingGames.length > 0 
+    ? Math.max(...existingGames.map(g => g.priority || 0))
+    : 0;
+  
+  console.log(`📊 기존 게임 ${existingGameIds.size}개 확인됨, 최대 우선순위: ${maxPriority}`);
 
   // API 게임 데이터 병렬 처리 (성능 최적화)
   const processedGames: any[] = [];
@@ -372,9 +443,15 @@ async function syncGamesFromAPI(
   let newCount = 0;
   let updateCount = 0;
 
-  // 신규 게임 배치 추가 (성능 최적화)
+  // 신규 게임 배치 추가 (성능 최적화) - 신규 게임에 높은 priority 부여
   if (newGames.length > 0) {
-    const gamesToInsert = newGames.map(({ isExisting, ...game }) => game);
+    // 신규 게임에 순차적으로 높은 priority 부여 (상위 노출)
+    const gamesToInsert = newGames.map(({ isExisting, ...game }, index) => ({
+      ...game,
+      priority: maxPriority + newGames.length - index // 가장 최근 게임이 가장 높은 priority
+    }));
+    
+    console.log(`🆕 신규 게임 우선순위 범위: ${maxPriority + 1} ~ ${maxPriority + newGames.length}`);
     
     // 대량 데이터는 청크 단위로 나누어 처리
     const insertBatchSize = 500; // Supabase 배치 제한 고려
@@ -392,7 +469,7 @@ async function syncGamesFromAPI(
     }
 
     newCount = newGames.length;
-    console.log(`✅ ${newCount}개 신규 게임 추가 완료`);
+    console.log(`✅ ${newCount}개 신규 게임 추가 완료 (상위 노출 설정)`);
   }
 
   // 기존 게임 배치 업데이트 (성능 최적화)
@@ -744,7 +821,7 @@ async function generateGameLaunchUrl(
       // Fallback: 시스템 관리자 OPCODE 사용
       const { data: systemOpcodeData, error: systemOpcodeError } = await supabase
         .from('partners')
-        .select('opcode, secret_key')
+        .select('opcode, secret_key, api_token')
         .eq('level', 1)
         .order('created_at', { ascending: true })
         .limit(1)
@@ -754,9 +831,13 @@ async function generateGameLaunchUrl(
         throw new Error('시스템 OPCODE 정보를 찾을 수 없습니다. 관리자에게 문의하세요.');
       }
 
+      if (!systemOpcodeData.api_token) {
+        throw new Error('시스템 관리자의 API 토큰이 설정되지 않았습니다. partners 테이블에서 api_token을 설정하세요.');
+      }
+
       opcode = systemOpcodeData.opcode;
       secret_key = systemOpcodeData.secret_key;
-      token = '153b28230ef1c40c11ff526e9da93e2b'; // 기본 토큰
+      token = systemOpcodeData.api_token;
     } else {
       opcode = opcodeData.opcode;
       secret_key = opcodeData.secret_key;
@@ -821,15 +902,9 @@ async function generateGameLaunchUrl(
       throw new Error(result.error || '게임 실행 URL을 받지 못했습니다.');
     }
 
-    console.log('✅ 게임 URL 획득:', gameUrl);
+    console.log('✅ 게임 URL 획득');
 
-    // 게임 실행 세션 저장 (30분 내 재활성화 또는 신규 생성)
-    console.log('💾 게임 세션 저장 시작:', {
-      userId,
-      gameId,
-      opcode,
-      balance
-    });
+    // 게임 실행 세션 저장
 
     const { data: sessionId, error: sessionError } = await supabase
       .rpc('save_game_launch_session', {
@@ -865,17 +940,7 @@ async function generateGameLaunchUrl(
       console.error('⚠️ 함수가 에러를 반환하지 않았지만 세션 ID가 null입니다.');
       console.error('⚠️ Supabase 로그를 확인하세요: https://nzuzzmaiuybzyndptaba.supabase.co/project/_/logs/postgres-logs');
     } else {
-      console.log('✅ 게임 세션 저장 성공! Session ID:', sessionId);
-      
-      // 세션 모니터링 시작 (window.startSessionMonitor가 있으면)
-      if (typeof (window as any).startSessionMonitor === 'function') {
-        try {
-          (window as any).startSessionMonitor(sessionId, userId);
-          console.log('🎯 세션 모니터링 시작 요청 완료');
-        } catch (monitorError) {
-          console.error('⚠️ 세션 모니터링 시작 오류:', monitorError);
-        }
-      }
+      console.log('✅ 게임 세션 저장 완료:', sessionId);
     }
 
     return {

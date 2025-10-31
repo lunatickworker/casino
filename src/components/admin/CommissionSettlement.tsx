@@ -15,26 +15,10 @@ import { cn } from "../../lib/utils";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { MetricCard } from "./MetricCard";
+import { calculateChildPartnersCommission, PartnerCommissionInfo } from "../../lib/settlementCalculator";
 
 interface CommissionSettlementProps {
   user: Partner;
-}
-
-interface PartnerCommission {
-  partner_id: string;
-  partner_username: string;
-  partner_nickname: string;
-  partner_level: number;
-  commission_rolling: number;
-  commission_losing: number;
-  withdrawal_fee: number;
-  total_bet_amount: number;
-  total_loss_amount: number;
-  total_withdrawal_amount: number;
-  rolling_commission: number;
-  losing_commission: number;
-  withdrawal_commission: number;
-  total_commission: number;
 }
 
 export function CommissionSettlement({ user }: CommissionSettlementProps) {
@@ -43,7 +27,7 @@ export function CommissionSettlement({ user }: CommissionSettlementProps) {
   const [settlementMethod, setSettlementMethod] = useState<'differential' | 'direct_subordinate'>('direct_subordinate');
   const [periodFilter, setPeriodFilter] = useState("today");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [commissions, setCommissions] = useState<PartnerCommission[]>([]);
+  const [commissions, setCommissions] = useState<PartnerCommissionInfo[]>([]);
   
   const [stats, setStats] = useState({
     totalRollingCommission: 0,
@@ -131,16 +115,10 @@ export function CommissionSettlement({ user }: CommissionSettlementProps) {
       }
       const { start, end } = getDateRange();
 
-      // 직속 하위 파트너 목록 조회
-      const { data: childPartners, error: partnersError } = await supabase
-        .from('partners')
-        .select('id, username, nickname, level, commission_rolling, commission_losing, withdrawal_fee')
-        .eq('parent_id', user.id)
-        .order('level')
-        .order('nickname');
+      // ✅ 통합 모듈 사용: 직속 하위 파트너들의 커미션 계산
+      const commissionsData = await calculateChildPartnersCommission(user.id, start, end);
 
-      if (partnersError) throw partnersError;
-      if (!childPartners || childPartners.length === 0) {
+      if (commissionsData.length === 0) {
         setCommissions([]);
         setStats({
           totalRollingCommission: 0,
@@ -150,14 +128,6 @@ export function CommissionSettlement({ user }: CommissionSettlementProps) {
           partnerCount: 0
         });
         return;
-      }
-
-      // 각 파트너별로 수수료 계산
-      const commissionsData: PartnerCommission[] = [];
-
-      for (const partner of childPartners) {
-        const commission = await calculatePartnerCommission(partner.id, partner, start, end);
-        commissionsData.push(commission);
       }
 
       setCommissions(commissionsData);
@@ -187,176 +157,7 @@ export function CommissionSettlement({ user }: CommissionSettlementProps) {
     }
   };
 
-  const calculatePartnerCommission = async (
-    partnerId: string,
-    partner: any,
-    start: string,
-    end: string
-  ): Promise<PartnerCommission> => {
-    try {
-      let totalBetAmount = 0;
-      let totalLossAmount = 0;
-      let totalWithdrawalAmount = 0;
-
-      if (settlementMethod === 'direct_subordinate') {
-        // 직속 하위 정산: 해당 파트너의 모든 하위 사용자 데이터 계산
-        const descendantUserIds = await getDescendantUserIds(partnerId);
-
-        if (descendantUserIds.length > 0) {
-          // 베팅 데이터 조회
-          const { data: bettingData, error: bettingError } = await supabase
-            .from('game_records')
-            .select('bet_amount, win_amount')
-            .in('user_id', descendantUserIds)
-            .gte('created_at', start)
-            .lte('created_at', end);
-
-          if (bettingError) throw bettingError;
-
-          if (bettingData) {
-            totalBetAmount = bettingData.reduce((sum, record) => sum + (record.bet_amount || 0), 0);
-            totalLossAmount = bettingData.reduce((sum, record) => {
-              const loss = (record.bet_amount || 0) - (record.win_amount || 0);
-              return sum + (loss > 0 ? loss : 0);
-            }, 0);
-          }
-
-          // 출금 데이터 조회
-          const { data: withdrawalData, error: withdrawalError } = await supabase
-            .from('transactions')
-            .select('amount')
-            .in('user_id', descendantUserIds)
-            .eq('transaction_type', 'withdrawal')
-            .eq('status', 'approved')
-            .gte('created_at', start)
-            .lte('created_at', end);
-
-          if (withdrawalError) throw withdrawalError;
-
-          if (withdrawalData) {
-            totalWithdrawalAmount = withdrawalData.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-          }
-        }
-      } else {
-        // 차등 정산: 직속 사용자만 계산
-        const { data: directUsers, error: usersError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('referrer_id', partnerId);
-
-        if (usersError) throw usersError;
-
-        if (directUsers && directUsers.length > 0) {
-          const userIds = directUsers.map(u => u.id);
-
-          // 베팅 데이터 조회
-          const { data: bettingData, error: bettingError } = await supabase
-            .from('game_records')
-            .select('bet_amount, win_amount')
-            .in('user_id', userIds)
-            .gte('created_at', start)
-            .lte('created_at', end);
-
-          if (bettingError) throw bettingError;
-
-          if (bettingData) {
-            totalBetAmount = bettingData.reduce((sum, record) => sum + (record.bet_amount || 0), 0);
-            totalLossAmount = bettingData.reduce((sum, record) => {
-              const loss = (record.bet_amount || 0) - (record.win_amount || 0);
-              return sum + (loss > 0 ? loss : 0);
-            }, 0);
-          }
-
-          // 출금 데이터 조회
-          const { data: withdrawalData, error: withdrawalError } = await supabase
-            .from('transactions')
-            .select('amount')
-            .in('user_id', userIds)
-            .eq('transaction_type', 'withdrawal')
-            .eq('status', 'approved')
-            .gte('created_at', start)
-            .lte('created_at', end);
-
-          if (withdrawalError) throw withdrawalError;
-
-          if (withdrawalData) {
-            totalWithdrawalAmount = withdrawalData.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-          }
-        }
-      }
-
-      // 수수료 계산
-      const rollingCommission = totalBetAmount * (partner.commission_rolling / 100);
-      const losingCommission = totalLossAmount * (partner.commission_losing / 100);
-      const withdrawalCommission = totalWithdrawalAmount * (partner.withdrawal_fee / 100);
-      const totalCommission = rollingCommission + losingCommission + withdrawalCommission;
-
-      return {
-        partner_id: partnerId,
-        partner_username: partner.username,
-        partner_nickname: partner.nickname,
-        partner_level: partner.level,
-        commission_rolling: partner.commission_rolling,
-        commission_losing: partner.commission_losing,
-        withdrawal_fee: partner.withdrawal_fee,
-        total_bet_amount: totalBetAmount,
-        total_loss_amount: totalLossAmount,
-        total_withdrawal_amount: totalWithdrawalAmount,
-        rolling_commission: rollingCommission,
-        losing_commission: losingCommission,
-        withdrawal_commission: withdrawalCommission,
-        total_commission: totalCommission
-      };
-    } catch (error) {
-      console.error('파트너 수수료 계산 실패:', error);
-      return {
-        partner_id: partnerId,
-        partner_username: partner.username,
-        partner_nickname: partner.nickname,
-        partner_level: partner.level,
-        commission_rolling: partner.commission_rolling,
-        commission_losing: partner.commission_losing,
-        withdrawal_fee: partner.withdrawal_fee,
-        total_bet_amount: 0,
-        total_loss_amount: 0,
-        total_withdrawal_amount: 0,
-        rolling_commission: 0,
-        losing_commission: 0,
-        withdrawal_commission: 0,
-        total_commission: 0
-      };
-    }
-  };
-
-  // 재귀적으로 모든 하위 사용자 ID 가져오기
-  const getDescendantUserIds = async (partnerId: string): Promise<string[]> => {
-    const allUserIds: string[] = [];
-
-    // 직속 사용자 조회
-    const { data: directUsers } = await supabase
-      .from('users')
-      .select('id')
-      .eq('referrer_id', partnerId);
-
-    if (directUsers) {
-      allUserIds.push(...directUsers.map(u => u.id));
-    }
-
-    // 하위 파트너 조회
-    const { data: childPartners } = await supabase
-      .from('partners')
-      .select('id')
-      .eq('parent_id', partnerId);
-
-    if (childPartners) {
-      for (const child of childPartners) {
-        const childUserIds = await getDescendantUserIds(child.id);
-        allUserIds.push(...childUserIds);
-      }
-    }
-
-    return allUserIds;
-  };
+  // ✅ 중복 로직 제거: settlementCalculator 모듈 사용
 
   const handleRefresh = () => {
     setRefreshing(true);

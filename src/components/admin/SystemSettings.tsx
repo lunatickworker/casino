@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { 
   Settings, Save, RefreshCw, Shield, 
   Globe, Plus, Trash2, 
-  Monitor, Activity, AlertCircle, Search, Users 
+  Monitor, Activity, AlertCircle, Search, Users, Gamepad2 
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { Partner } from "../../types";
@@ -97,6 +97,12 @@ export function SystemSettings({ user, initialTab = "general" }: SystemSettingsP
     withdrawal_fee: 0
   });
 
+  // 에볼루션 배팅 제한 상태
+  const [evolutionLimit, setEvolutionLimit] = useState<number>(100000000);
+  const [currentEvolutionLimit, setCurrentEvolutionLimit] = useState<number | null>(null);
+  const [evolutionLoading, setEvolutionLoading] = useState(false);
+  const [selectedEvolutionPartnerId, setSelectedEvolutionPartnerId] = useState<string>(user.id);
+
   useEffect(() => {
     loadSettings();
     loadSystemInfo();
@@ -106,6 +112,12 @@ export function SystemSettings({ user, initialTab = "general" }: SystemSettingsP
     const interval = setInterval(loadSystemInfo, 30000);
     return () => clearInterval(interval);
   }, [user.level]);
+
+  useEffect(() => {
+    if (selectedEvolutionPartnerId) {
+      loadEvolutionLimit(selectedEvolutionPartnerId);
+    }
+  }, [selectedEvolutionPartnerId]);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -420,6 +432,108 @@ export function SystemSettings({ user, initialTab = "general" }: SystemSettingsP
     }
   };
 
+  // 에볼루션 설정 조회 (2.7)
+  const loadEvolutionLimit = async (partnerId: string) => {
+    try {
+      setEvolutionLoading(true);
+      
+      const { md5Hash } = await import('../../lib/investApi');
+      
+      const { data: partnerData, error: partnerError } = await supabase
+        .from('partners')
+        .select('opcode, secret_key, nickname')
+        .eq('id', partnerId)
+        .single();
+
+      if (partnerError || !partnerData?.opcode || !partnerData?.secret_key) {
+        console.error('Partner data error:', partnerError, partnerData);
+        toast.error('파트너 API 설정을 찾을 수 없습니다.');
+        return;
+      }
+
+      const signature = md5Hash(partnerData.opcode + partnerData.secret_key);
+
+      const response = await fetch('https://vi8282.com/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: 'https://api.invest-ho.com/api/game/limit',
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          body: {
+            opcode: partnerData.opcode,
+            signature: signature
+          }
+        })
+      });
+
+      const result = await response.json();
+      const data = result.DATA || result;
+      const limit = data.limit || 100000000;
+      
+      setCurrentEvolutionLimit(limit);
+      setEvolutionLimit(limit);
+
+    } catch (error: any) {
+      console.error('에볼루션 설정 조회 오류:', error);
+      toast.error('설정을 불러오는데 실패했습니다.');
+    } finally {
+      setEvolutionLoading(false);
+    }
+  };
+
+  // 에볼루션 설정 저장 (2.5)
+  const saveEvolutionLimit = async () => {
+    try {
+      setEvolutionLoading(true);
+
+      const { md5Hash } = await import('../../lib/investApi');
+      
+      const { data: partnerData, error: partnerError } = await supabase
+        .from('partners')
+        .select('opcode, secret_key, nickname')
+        .eq('id', selectedEvolutionPartnerId)
+        .single();
+
+      if (partnerError || !partnerData?.opcode || !partnerData?.secret_key) {
+        toast.error('파트너 API 설정을 찾을 수 없습니다.');
+        return;
+      }
+
+      const signature = md5Hash(partnerData.opcode + partnerData.secret_key);
+
+      const response = await fetch('https://vi8282.com/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: 'https://api.invest-ho.com/api/game/limit',
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: {
+            opcode: partnerData.opcode,
+            limit: evolutionLimit,
+            signature: signature
+          }
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.RESULT === true || result.result === true) {
+        toast.success(`${partnerData.nickname}의 매장 기본 배팅 제한이 저장되었습니다.`);
+        setCurrentEvolutionLimit(evolutionLimit);
+      } else {
+        toast.error('설정 저장에 실패했습니다.');
+      }
+
+    } catch (error: any) {
+      console.error('에볼루션 설정 저장 오류:', error);
+      toast.error('설정을 저장하는데 실패했습니다.');
+    } finally {
+      setEvolutionLoading(false);
+    }
+  };
+
   const StatusIndicator = ({ status, label }: { status: string; label: string }) => (
     <div className="flex items-center gap-2">
       <div className={`h-3 w-3 rounded-full ${
@@ -450,12 +564,18 @@ export function SystemSettings({ user, initialTab = "general" }: SystemSettingsP
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 bg-slate-900/50 p-1 border border-slate-700/50 backdrop-blur-sm">
+        <TabsList className="grid w-full grid-cols-5 bg-slate-900/50 p-1 border border-slate-700/50 backdrop-blur-sm">
           <TabsTrigger 
             value="general"
             className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 hover:bg-slate-800/50 transition-all duration-300"
           >
             기본 설정
+          </TabsTrigger>
+          <TabsTrigger 
+            value="evolution"
+            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 hover:bg-slate-800/50 transition-all duration-300"
+          >
+            에볼루션 설정
           </TabsTrigger>
           <TabsTrigger 
             value="commission"
@@ -583,6 +703,133 @@ export function SystemSettings({ user, initialTab = "general" }: SystemSettingsP
                   <Save className="h-4 w-4" />
                   {saving ? '저장 중...' : '설정 저장'}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="evolution" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Gamepad2 className="h-5 w-5" />
+                에볼루션 매장 기본 배팅 제한
+              </CardTitle>
+              <CardDescription>
+                에볼루션 카지노 게임의 매장 기본 최대 배팅 금액을 설정합니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* 파트너 선택 */}
+              <div className="space-y-2">
+                <Label htmlFor="evolution-partner-select" className="text-xs text-slate-400">
+                  파트너 선택
+                </Label>
+                <Select
+                  value={selectedEvolutionPartnerId}
+                  onValueChange={setSelectedEvolutionPartnerId}
+                  disabled={evolutionLoading}
+                >
+                  <SelectTrigger id="evolution-partner-select" className="bg-slate-800/50 border-slate-700">
+                    <SelectValue placeholder="파트너를 선택하세요" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={user.id}>
+                      본인 ({user.nickname})
+                    </SelectItem>
+                    {partners.map((partner) => (
+                      <SelectItem key={partner.id} value={partner.id}>
+                        [{partner.partner_type}] {partner.nickname} ({partner.username})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">
+                  설정을 조회/저장할 파트너를 선택하세요. 선택한 파트너의 opcode와 secret을 사용합니다.
+                </p>
+              </div>
+
+              {/* 현재 설정값 */}
+              {currentEvolutionLimit !== null && (
+                <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">현재 매장 기본 설정</span>
+                    <span className="font-mono text-blue-400">
+                      {currentEvolutionLimit.toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 금액 입력 */}
+              <div>
+                <Label className="text-xs text-slate-400 mb-2">매장 기본 최대배팅금액</Label>
+                <Input
+                  type="number"
+                  value={evolutionLimit}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    setEvolutionLimit(value);
+                  }}
+                  className="bg-slate-800/50 border-slate-700 text-white font-mono"
+                  placeholder="금액 입력"
+                  disabled={evolutionLoading}
+                />
+                <p className="text-xs text-slate-500 mt-1.5">
+                  {evolutionLimit.toLocaleString()}원
+                </p>
+              </div>
+
+              {/* 금액 단축 버튼 */}
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { value: 1000000, label: '1백만' },
+                  { value: 5000000, label: '5백만' },
+                  { value: 10000000, label: '1천만' },
+                  { value: 50000000, label: '5천만' },
+                  { value: 100000000, label: '1억' },
+                  { value: 200000000, label: '2억' },
+                  { value: 300000000, label: '3억' },
+                  { value: 500000000, label: '5억' }
+                ].map((item) => (
+                  <Button
+                    key={item.value}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEvolutionLimit(item.value)}
+                    disabled={evolutionLoading}
+                    className="bg-slate-800/50 border-slate-700 hover:bg-slate-700 text-xs font-mono"
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+              </div>
+
+              {/* 저장 버튼 */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEvolutionLimit(currentEvolutionLimit || 100000000);
+                  }}
+                  disabled={evolutionLoading}
+                  className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-700/50"
+                >
+                  초기화
+                </Button>
+                <Button
+                  onClick={saveEvolutionLimit}
+                  disabled={evolutionLoading}
+                  className="flex-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700"
+                >
+                  {evolutionLoading ? '저장 중...' : '저장'}
+                </Button>
+              </div>
+
+              <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <p className="text-xs text-yellow-400">
+                  ⚠️ 이 설정은 매장 전체의 기본 배팅 제한입니다. 개별 회원 설정은 회원 상세보기에서 가능합니다.
+                </p>
               </div>
             </CardContent>
           </Card>

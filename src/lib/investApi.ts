@@ -1,6 +1,9 @@
+// Supabase import
+import { supabase } from './supabase';
+
 // ✅ 검증된 MD5 해시 함수 (UTF-8 인코딩 포함)
 // Guidelines 요구사항: "utf-8 함수로 변환 후 md5(signature) 생성"
-function md5Hash(input: string): string {
+export function md5Hash(input: string): string {
   // UTF-8 인코딩: TextEncoder 사용 (브라우저 네이티브, 정확함)
   const utf8Bytes = new TextEncoder().encode(input);
   // 헬퍼 함수들
@@ -550,6 +553,155 @@ export async function withdrawFromAccount(opcode: string, username: string, toke
     amount: amountInt,
     signature
   });
+}
+
+// 사용자 보유금 조회 (API 설정 직접 전달)
+// Guidelines 1.9: GET /api/account/balance
+// Signature: md5(opcode + username + token + secret_key)
+export async function getUserBalanceWithConfig(
+  opcode: string,
+  username: string,
+  apiToken: string,
+  secretKey: string
+): Promise<{ success: boolean; balance?: number; error?: string }> {
+  try {
+    if (!opcode || !username || !apiToken || !secretKey) {
+      const missingParams = [];
+      if (!opcode) missingParams.push('opcode');
+      if (!username) missingParams.push('username');
+      if (!apiToken) missingParams.push('api_token');
+      if (!secretKey) missingParams.push('secret_key');
+      
+      console.error('❌ [보유금 조회] 필수 파라미터 누락:', { 
+        opcode, 
+        username, 
+        hasToken: !!apiToken, 
+        hasSecretKey: !!secretKey,
+        missing: missingParams
+      });
+      
+      if (!apiToken || !secretKey) {
+        console.error(`💡 해결 방법: partners 테이블에서 opcode='${opcode}'인 레코드에 다음 값을 설정하세요:`);
+        console.error(`   - api_token: Invest API에서 발급받은 토큰`);
+        console.error(`   - secret_key: Invest API에서 발급받은 시크릿 키`);
+        console.error(`SQL 예시: UPDATE partners SET api_token = 'YOUR_TOKEN', secret_key = 'YOUR_SECRET' WHERE opcode = '${opcode}';`);
+      }
+      
+      return { success: false, error: `필수 파라미터 누락: ${missingParams.join(', ')}` };
+    }
+
+    const signature = generateSignature([opcode, username, apiToken], secretKey);
+    
+    console.log('💰 보유금 조회 API 호출:', {
+      opcode,
+      username,
+      token: '***' + apiToken.slice(-4)
+    });
+    
+    const result = await callInvestApi('/api/account/balance', 'GET', {
+      opcode,
+      username,
+      token: apiToken,
+      signature
+    });
+
+    if (result.error) {
+      console.error('❌ [보유금 조회] API 오류:', result.error);
+      return { success: false, error: result.error };
+    }
+
+    console.log('📊 [보유금 조회] API 응답:', result.data);
+
+    // 응답 파싱 - 다양한 형식 지원
+    let balance: number | undefined;
+
+    if (result.data) {
+      // 1. 직접 balance 필드
+      if (result.data.balance !== undefined && result.data.balance !== null) {
+        balance = Number(result.data.balance);
+      }
+      // 2. amount 필드
+      else if (result.data.amount !== undefined && result.data.amount !== null) {
+        balance = Number(result.data.amount);
+      }
+      // 3. DATA.balance
+      else if (result.data.DATA?.balance !== undefined && result.data.DATA.balance !== null) {
+        balance = Number(result.data.DATA.balance);
+      }
+      // 4. DATA.amount
+      else if (result.data.DATA?.amount !== undefined && result.data.DATA.amount !== null) {
+        balance = Number(result.data.DATA.amount);
+      }
+      // 5. current_balance
+      else if (result.data.current_balance !== undefined && result.data.current_balance !== null) {
+        balance = Number(result.data.current_balance);
+      }
+    }
+
+    if (balance !== undefined && !isNaN(balance)) {
+      console.log(`✅ [보유금 조회] 성공: ${username} = ${balance}원`);
+      return { success: true, balance };
+    }
+
+    console.error('❌ [보유금 조회] 응답에서 잔고를 찾을 수 없음:', result.data);
+    return { success: false, error: '보유금 정보를 찾을 수 없습니다' };
+
+  } catch (error) {
+    console.error('❌ [보유금 조회] 오류:', error);
+    return { success: false, error: error instanceof Error ? error.message : '알 수 없는 오류' };
+  }
+}
+
+// 사용자 보유금 조회 (레거시 - opcode로 API 설정 자동 조회)
+// 새로운 코드는 getUserBalanceWithConfig 사용 권장
+export async function getUserBalance(opcode: string, username: string): Promise<{ success: boolean; balance?: number; error?: string }> {
+  try {
+    // API 설정 조회 (partners 테이블에서)
+    console.log(`🔍 [getUserBalance] partners 테이블 조회 시작: opcode=${opcode}`);
+    
+    const { data: partner, error: configError } = await supabase
+      .from('partners')
+      .select('api_token, secret_key, opcode, username')
+      .eq('opcode', opcode)
+      .single();
+
+    console.log(`🔍 [getUserBalance] 조회 결과:`, { 
+      partner, 
+      configError,
+      hasApiToken: !!partner?.api_token,
+      hasSecretKey: !!partner?.secret_key
+    });
+
+    if (configError || !partner) {
+      console.error('❌ [보유금 조회] partners 조회 실패:', { 
+        opcode, 
+        error: configError,
+        errorCode: configError?.code,
+        errorMessage: configError?.message,
+        errorDetails: configError?.details
+      });
+      return { success: false, error: `API 설정을 찾을 수 없습니다 (opcode: ${opcode})` };
+    }
+
+    if (!partner.api_token || !partner.secret_key) {
+      console.error('❌ [보유금 조회] API 설정 불완전:', { 
+        opcode, 
+        username: partner.username,
+        hasApiToken: !!partner.api_token,
+        hasSecretKey: !!partner.secret_key,
+        apiTokenLength: partner.api_token?.length || 0,
+        secretKeyLength: partner.secret_key?.length || 0
+      });
+      return { success: false, error: 'API 설정이 불완전합니다' };
+    }
+
+    // 새로운 함수로 위임
+    return await getUserBalanceWithConfig(opcode, username, partner.api_token, partner.secret_key);
+
+  } catch (error) {
+    console.error('❌ [보유금 조회] 오류:', error);
+    return { success: false, error: error instanceof Error ? error.message : '알 수 없는 오류' };
+  }
 }
 
 // 입금 함수 - opcode, token, secretKey 필수 (하드코딩 금지)
@@ -1151,8 +1303,9 @@ export function extractBalanceFromResponse(response: any, username?: string): nu
   return 0;
 }
 
-// 사용자 보유금 조회 (GET /api/account/balance)
-export async function getUserBalance(opcode: string, username: string, token: string, secretKey: string) {
+// 사용자 보유금 조회 (Legacy - 직접 파라미터 전달)
+// ⚠️ Deprecated: getUserBalance() 사용 권장 (API 설정 자동 조회)
+export async function getUserBalanceWithParams(opcode: string, username: string, token: string, secretKey: string) {
   const signature = generateSignature([opcode, username, token], secretKey);
   
   return await callInvestApi('/api/account/balance', 'GET', {
@@ -1164,7 +1317,7 @@ export async function getUserBalance(opcode: string, username: string, token: st
 }
 
 // 파트너의 API 설정 조회
-export async function getApiConfig(partnerId: string): Promise<{ opcode: string; secretKey: string; token: string }> {
+export async function getApiConfig(partnerId: string): Promise<{ opcode: string; secret_key: string; token: string }> {
   const { data: partner, error } = await supabase
     .from('partners')
     .select('opcode, secret_key, api_token')
@@ -1181,7 +1334,7 @@ export async function getApiConfig(partnerId: string): Promise<{ opcode: string;
 
   return {
     opcode: partner.opcode,
-    secretKey: partner.secret_key,
+    secret_key: partner.secret_key,
     token: partner.api_token
   };
 }

@@ -294,11 +294,9 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
       
       const result = await gameApi.generateGameLaunchUrl(user.id, game.game_id);
       
-      console.log('🎰 슬롯 게임 실행 결과:', result);
-      
       if (result.success && result.launchUrl) {
-        const sessionId = result.sessionId; // 반환된 sessionId 사용
-        console.log('🎰 슬롯 게임 sessionId 확인:', { sessionId, result });
+        const sessionId = result.sessionId;
+        console.log('🎰 슬롯 게임 실행:', sessionId);
         
         // 슬롯은 일반 창으로 실행
         const gameWindow = window.open(
@@ -337,30 +335,88 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
             timestamp: new Date().toISOString()
           });
 
-          // 게임 창 종료 감지 (즉시 체크 시작)
-          if (sessionId) {
-            // 게임 창이 열린 후 3초 대기 (팝업 완전히 로드될 때까지)
-            setTimeout(() => {
-              const checkGameWindow = setInterval(() => {
+          // 게임 창 종료 감지 (다중 메커니즘)
+          if (sessionId && typeof sessionId === 'number') {
+            // 전역 맵 초기화
+            if (!(window as any).gameWindowCheckers) {
+              (window as any).gameWindowCheckers = new Map();
+            }
+            
+            // 종료 처리 함수 (중복 실행 방지)
+            let isProcessing = false;
+            const handleGameWindowClose = async () => {
+              if (isProcessing) return;
+              isProcessing = true;
+              
+              console.log('🎰 슬롯 게임 창 종료 감지:', sessionId);
+              
+              // 인터벌 정리
+              const checker = (window as any).gameWindowCheckers?.get(sessionId);
+              if (checker) {
+                clearInterval(checker);
+                (window as any).gameWindowCheckers?.delete(sessionId);
+              }
+              
+              // 게임창 참조 삭제
+              (window as any).gameWindows?.delete(sessionId);
+              console.log('🧹 슬롯 게임창 참조 삭제:', sessionId);
+              
+              // 즉시 세션 종료 및 잔고 동기화 실행
+              console.log('💰 잔고 동기화 시작:', sessionId);
+              (window as any).syncBalanceAfterGame?.(sessionId);
+            };
+            
+            // 방법 1: setInterval로 주기적 체크
+            let checkCount = 0;
+            const checkGameWindow = setInterval(() => {
+              checkCount++;
+              console.log(`🔍 [${checkCount}] 게임창 체크 중... sessionId:${sessionId}`);
+              
+              try {
                 if (gameWindow.closed) {
-                  clearInterval(checkGameWindow);
-                  console.log('🎰 슬롯 게임 창 종료 감지');
-                  
-                  // 게임창 참조 삭제
-                  if (typeof sessionId === 'number') {
-                    (window as any).gameWindows?.delete(sessionId);
-                    console.log('🧹 슬롯 게임창 참조 삭제:', sessionId);
-                  }
-                  
-                  // 즉시 세션 종료 및 잔고 동기화 실행
-                  if (sessionId && typeof sessionId === 'number') {
-                    (window as any).syncBalanceAfterGame?.(sessionId);
-                  } else {
-                    console.warn('⚠️ 잔고 동기화 실패, sessionId가 유효하지 않음:', sessionId);
-                  }
+                  console.log(`✅ [${checkCount}] 게임창 닫힘 확인!`);
+                  handleGameWindowClose();
                 }
-              }, 1000); // 1초마다 체크
-            }, 3000); // 3초 후부터 체크 시작
+              } catch (error) {
+                console.log(`⚠️ [${checkCount}] 체크 에러:`, error);
+              }
+            }, 300); // 300ms마다 체크
+            
+            (window as any).gameWindowCheckers.set(sessionId, checkGameWindow);
+            
+            // 방법 2: window focus 이벤트 - 사용자가 부모 창으로 돌아올 때 체크
+            const handleFocus = () => {
+              console.log('👁️ 포커스 이벤트 - 게임창 확인');
+              try {
+                if (gameWindow.closed) {
+                  console.log('✅ 포커스 이벤트에서 게임창 닫힘 확인!');
+                  window.removeEventListener('focus', handleFocus);
+                  handleGameWindowClose();
+                }
+              } catch (error) {
+                console.log('⚠️ 포커스 체크 에러:', error);
+              }
+            };
+            window.addEventListener('focus', handleFocus);
+            
+            // 방법 3: visibilitychange 이벤트 - 탭이 활성화될 때 체크
+            const handleVisibilityChange = () => {
+              if (document.visibilityState === 'visible') {
+                console.log('👁️ 탭 활성화 - 게임창 확인');
+                try {
+                  if (gameWindow.closed) {
+                    console.log('✅ 탭 활성화에서 게임창 닫힘 확인!');
+                    document.removeEventListener('visibilitychange', handleVisibilityChange);
+                    handleGameWindowClose();
+                  }
+                } catch (error) {
+                  console.log('⚠️ 가시성 체크 에러:', error);
+                }
+              }
+            };
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            
+            console.log('✅ 슬롯 게임창 다중 감지 시작:', sessionId);
           }
         }
       } else {

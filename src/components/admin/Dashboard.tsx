@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatNumber, getPartnerLevelText } from "../../lib/utils";
 import { DashboardStats, Partner } from "../../types";
+import { calculatePendingDeposits } from "../../lib/settlementCalculator";
 
 interface DashboardProps {
   user: Partner;
@@ -333,25 +334,13 @@ export function Dashboard({ user }: DashboardProps) {
         onlineCount = count || 0;
       }
 
-      // 5️⃣ 만충금 조회 (직속 + 하위 파트너 회원)
-      let pendingDepositAmount = 0;
+      // 5️⃣ 만충금 조회 (직속 + 하위 파트너 회원) - ✅ 통합 모듈 사용
       const allUserIds = [...directUserIds, ...subPartnerUserIds];
-      
-      if (allUserIds.length > 0) {
-        const { data: pendingData, error: pendingError } = await supabase
-          .from('transactions')
-          .select('amount')
-          .eq('transaction_type', 'deposit')
-          .eq('status', 'pending')
-          .in('user_id', allUserIds)
-          .gte('created_at', todayStartISO);
-
-        if (pendingError) {
-          console.error('❌ 만충금 조회 실패:', pendingError);
-        }
-
-        pendingDepositAmount = pendingData?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-      }
+      const pendingDepositAmount = await calculatePendingDeposits(
+        allUserIds,
+        todayStartISO,
+        new Date().toISOString()
+      );
       
       // 6️⃣ 직속 회원 베팅 통계
       let directCasinoBetting = 0;

@@ -15,6 +15,7 @@ import { useWebSocketContext } from "../../contexts/WebSocketContext";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner@2.0.3";
 import { getAdminOpcode, isMultipleOpcode } from "../../lib/opcodeHelper";
+import * as investApi from "../../lib/investApi";
 import { UserDetailModal } from "./UserDetailModal";
 import { MetricCard } from "./MetricCard";
 import { ForceTransactionModal } from "./ForceTransactionModal";
@@ -134,6 +135,8 @@ export function UserManagement() {
           .from('users')
           .select(`
             *,
+            balance_sync_call_count,
+            balance_sync_started_at,
             referrer:partners!referrer_id(
               id,
               username,
@@ -160,6 +163,8 @@ export function UserManagement() {
         .from('users')
         .select(`
           *,
+          balance_sync_call_count,
+          balance_sync_started_at,
           referrer:partners!referrer_id(
             id,
             username,
@@ -457,7 +462,7 @@ export function UserManagement() {
         .eq('sender_id', deleteUser.id);
 
       if (messageSenderError) {
-        console.warn('⚠️ 메시지 큐 (발송자) 삭제 중 오류:', messageSenderError);
+        console.warn('⚠️ 메��지 큐 (발송자) 삭제 중 오류:', messageSenderError);
       }
 
       const { error: messageTargetError } = await supabase

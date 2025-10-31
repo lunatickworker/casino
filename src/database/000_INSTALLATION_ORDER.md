@@ -445,5 +445,28 @@
 
 ---
 
-**마지막 업데이트**: 2025-01-XX  
-**버전**: 최신 (311 session_timers 통합 제거 추가)
+### 8️⃣ 베팅 기록은 업데이트되지만 세션 생성 안됨 (긴급!)
+
+**증상**:
+```
+✅ game_records 베팅 기록 업데이트됨
+❌ game_launch_sessions 세션 생성 안됨
+⚠️ OnlineUsers 컴포넌트에 온라인 사용자 표시 안됨
+```
+
+**원인**:
+- 트리거 함수에서 NEW.partner_id가 NULL이어서 early return 발생
+- pg_cron과 setTimeout 충돌로 세션 자동 종료 문제
+
+**해결**:
+1. `/database/323_COMPLETE_CRON_REMOVAL.sql` 실행 (pg_cron 완전 삭제)
+2. `/database/325_FIX_SESSION_CREATION_TRIGGER.sql` 실행 (트리거 수정)
+3. `/database/326_DIAGNOSE_SESSION_ISSUE.sql` 실행 (진단)
+4. 게임 실행 → 베팅 → 세션 생성 확인
+
+**가이드**: `/database/327_SESSION_FIX_README.md` (세션 생성 문제 해결)
+
+---
+
+**마지막 업데이트**: 2025-10-29  
+**버전**: 최신 (325 세션 생성 트리거 수정 추가)

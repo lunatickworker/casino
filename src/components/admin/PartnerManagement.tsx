@@ -91,6 +91,13 @@ export function PartnerManagement() {
   const [showHierarchyView, setShowHierarchyView] = useState(false);
   const [currentTab, setCurrentTab] = useState("hierarchy");
   const [dashboardData, setDashboardData] = useState({});
+  const [levelDistribution, setLevelDistribution] = useState<{
+    level: number;
+    type: string;
+    typeName: string;
+    partnerCount: number;
+    usersBalance: number;
+  }[]>([]);
   const [expandedPartners, setExpandedPartners] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(false);
   const [hierarchyWarning, setHierarchyWarning] = useState<string>("");
@@ -1439,29 +1446,116 @@ export function PartnerManagement() {
   // 파트너 대시보드 데이터 조회
   const fetchDashboardData = async () => {
     try {
+      if (!authState.user) return;
+
       const today = new Date().toISOString().split('T')[0];
       
       // 오늘의 총 입출금
       const { data: todayTransactions } = await supabase
         .from('transactions')
         .select('transaction_type, amount')
-        .eq('partner_id', authState.user?.id)
+        .eq('partner_id', authState.user.id)
         .gte('created_at', today);
 
-      // 이번달 정산 데이터
-      const { data: monthlySettlement } = await supabase
-        .from('settlements')
-        .select('*')
-        .eq('partner_id', authState.user?.id)
-        .gte('period_start', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+      // ✅ 이번달 커미션: 실제 계산된 값 (내 총 수입 - 하위 파트너 지급)
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+      // 통합 정산 계산 (내 수입 - 하위 지급 = 순수익)
+      const { calculateIntegratedSettlement } = await import('../../lib/settlementCalculator');
+      const settlement = await calculateIntegratedSettlement(
+        authState.user.id,
+        {
+          rolling: authState.user.commission_rolling || 0,
+          losing: authState.user.commission_losing || 0,
+          withdrawal: authState.user.withdrawal_fee || 0
+        },
+        monthStart.toISOString(),
+        monthEnd.toISOString()
+      );
 
       setDashboardData({
         todayDeposits: todayTransactions?.filter(t => t.transaction_type === 'deposit').reduce((sum, t) => sum + Number(t.amount), 0) || 0,
         todayWithdrawals: todayTransactions?.filter(t => t.transaction_type === 'withdrawal').reduce((sum, t) => sum + Number(t.amount), 0) || 0,
-        monthlyCommission: monthlySettlement?.reduce((sum, s) => sum + Number(s.commission_amount), 0) || 0
+        monthlyCommission: Math.round(settlement.netTotalProfit) // 순수익 (내 수입 - 하위 지급)
       });
+
+      // 레벨별 분포 데이터 (하위 파트너만)
+      await fetchLevelDistribution();
     } catch (error) {
       console.error('대시보드 데이터 조회 오류:', error);
+    }
+  };
+
+  // 레벨별 분포 데이터 조회 (나를 포함한 하위 파트너, 각 레벨의 사용자 보유금 합계)
+  const fetchLevelDistribution = async () => {
+    try {
+      if (!authState.user) return;
+
+      // 나를 포함한 모든 하위 파트너 ID 조회 (partners 배열 활용)
+      const myPartnersIds = partners.map(p => p.id);
+      const allPartnerIds = authState.user.level === 1 
+        ? myPartnersIds 
+        : [authState.user.id, ...myPartnersIds];
+
+      if (allPartnerIds.length === 0) {
+        setLevelDistribution([]);
+        return;
+      }
+
+      // 각 파트너 타입별로 그룹화
+      const distributionMap = new Map<string, {
+        level: number;
+        type: string;
+        typeName: string;
+        partnerIds: string[];
+      }>();
+
+      // 파트너 타입별 데이터 수집
+      const relevantPartners = authState.user.level === 1 
+        ? partners 
+        : [authState.user, ...partners];
+
+      relevantPartners.forEach(partner => {
+        const key = partner.partner_type;
+        if (!distributionMap.has(key)) {
+          distributionMap.set(key, {
+            level: partner.level,
+            type: partner.partner_type,
+            typeName: partnerTypeTexts[partner.partner_type],
+            partnerIds: []
+          });
+        }
+        distributionMap.get(key)!.partnerIds.push(partner.id);
+      });
+
+      // 각 타입별 사용자 보유금 합계 조회
+      const distributionData = await Promise.all(
+        Array.from(distributionMap.values()).map(async (item) => {
+          const { data: usersData } = await supabase
+            .from('users')
+            .select('balance')
+            .in('referrer_id', item.partnerIds);
+
+          const usersBalance = usersData?.reduce((sum, u) => sum + (u.balance || 0), 0) || 0;
+
+          return {
+            level: item.level,
+            type: item.type,
+            typeName: item.typeName,
+            partnerCount: item.partnerIds.length,
+            usersBalance
+          };
+        })
+      );
+
+      // 레벨 순으로 정렬
+      distributionData.sort((a, b) => a.level - b.level);
+      setLevelDistribution(distributionData);
+
+    } catch (error) {
+      console.error('레벨별 분포 조회 오류:', error);
     }
   };
 
@@ -2416,7 +2510,7 @@ export function PartnerManagement() {
               <div className="grid gap-4 md:grid-cols-3 mb-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">이번달 커미션</CardTitle>
+                    <CardTitle className="text-sm font-medium">이번달 순수익</CardTitle>
                     <DollarSign className="h-4 w-4 text-green-500" />
                   </CardHeader>
                   <CardContent>
@@ -2424,7 +2518,7 @@ export function PartnerManagement() {
                       {(dashboardData.monthlyCommission || 0).toLocaleString()}원
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      +12% from last month
+                      내 수입 - 하위 파트너 지급
                     </p>
                   </CardContent>
                 </Card>
@@ -2495,28 +2589,55 @@ export function PartnerManagement() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">파트너 레벨별 분포</CardTitle>
+                    <CardDescription className="text-xs">
+                      각 레벨 파트너들이 보유한 사용자들의 총 보유금
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {Object.entries(partnerTypeTexts).map(([type, text]) => {
-                        const count = partners.filter(p => p.partner_type === type).length;
-                        const percentage = partners.length > 0 ? Math.round((count / partners.length) * 100) : 0;
-                        
-                        return (
-                          <div key={type} className="space-y-2">
+                    <div className="space-y-4">
+                      {levelDistribution.length > 0 ? (
+                        <>
+                          {levelDistribution.map((item) => {
+                            const maxBalance = Math.max(...levelDistribution.map(d => d.usersBalance), 1);
+                            const percentage = Math.round((item.usersBalance / maxBalance) * 100);
+                            
+                            return (
+                              <div key={item.type} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Badge className={`${partnerTypeColors[item.type as keyof typeof partnerTypeColors]} text-white text-xs`}>
+                                      LV.{item.level}
+                                    </Badge>
+                                    <span className="text-sm font-medium">{item.typeName}</span>
+                                    <span className="text-xs text-muted-foreground">({item.partnerCount}개)</span>
+                                  </div>
+                                  <span className="text-sm font-medium text-blue-600">
+                                    ₩{item.usersBalance.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-800/40 rounded-full h-3 overflow-hidden">
+                                  <div 
+                                    className={`h-3 rounded-full transition-all duration-500 ${partnerTypeColors[item.type as keyof typeof partnerTypeColors]}`}
+                                    style={{ width: `${Math.max(percentage, 2)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <div className="pt-3 border-t border-slate-700/50">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{text}</span>
-                              <span className="text-sm text-muted-foreground">{count}개 ({percentage}%)</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className={`h-2 rounded-full ${partnerTypeColors[type as keyof typeof partnerTypeColors]}`}
-                                style={{ width: `${percentage}%` }}
-                              />
+                              <span className="text-sm font-medium text-slate-300">총 사용자 보유금</span>
+                              <span className="text-sm font-bold text-emerald-400">
+                                ₩{levelDistribution.reduce((sum, item) => sum + item.usersBalance, 0).toLocaleString()}
+                              </span>
                             </div>
                           </div>
-                        );
-                      })}
+                        </>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground text-sm">
+                          하위 파트너가 없습니다
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
