@@ -63,33 +63,43 @@ export interface PartnerPaymentDetail {
 }
 
 /**
- * 재귀적으로 모든 하위 사용자 ID 가져오기
+ * ⚡ 최적화: 모든 하위 사용자 ID를 일괄 조회 (재귀 제거)
  * @param partnerId 파트너 ID
  * @returns 모든 하위 사용자 ID 배열
  */
 export async function getDescendantUserIds(partnerId: string): Promise<string[]> {
   const allUserIds: string[] = [];
-
-  // 직속 사용자 조회
-  const { data: directUsers } = await supabase
-    .from('users')
-    .select('id')
-    .eq('referrer_id', partnerId);
-
-  if (directUsers) {
-    allUserIds.push(...directUsers.map(u => u.id));
+  const allPartnerIds: string[] = [partnerId];
+  
+  // 1단계부터 5단계까지 하위 파트너를 반복문으로 조회 (재귀 제거)
+  let currentLevelIds = [partnerId];
+  
+  for (let level = 0; level < 5; level++) {
+    if (currentLevelIds.length === 0) break;
+    
+    const { data: nextLevelPartners } = await supabase
+      .from('partners')
+      .select('id')
+      .in('parent_id', currentLevelIds);
+    
+    if (nextLevelPartners && nextLevelPartners.length > 0) {
+      const nextIds = nextLevelPartners.map(p => p.id);
+      allPartnerIds.push(...nextIds);
+      currentLevelIds = nextIds;
+    } else {
+      break;
+    }
   }
-
-  // 하위 파트너 조회
-  const { data: childPartners } = await supabase
-    .from('partners')
-    .select('id')
-    .eq('parent_id', partnerId);
-
-  if (childPartners) {
-    for (const child of childPartners) {
-      const childUserIds = await getDescendantUserIds(child.id);
-      allUserIds.push(...childUserIds);
+  
+  // 모든 파트너의 직속 사용자를 한 번에 조회
+  if (allPartnerIds.length > 0) {
+    const { data: users } = await supabase
+      .from('users')
+      .select('id')
+      .in('referrer_id', allPartnerIds);
+    
+    if (users) {
+      allUserIds.push(...users.map(u => u.id));
     }
   }
 
@@ -97,7 +107,7 @@ export async function getDescendantUserIds(partnerId: string): Promise<string[]>
 }
 
 /**
- * 특정 기간의 베팅 통계 조회
+ * ⚡ 최적화: 특정 기간의 베팅 통계 조회 (필요한 컬럼만 SELECT)
  * @param userIds 사용자 ID 배열
  * @param startDate 시작 날짜
  * @param endDate 종료 날짜
@@ -112,27 +122,36 @@ export async function getBettingStats(
     return { totalBetAmount: 0, totalLossAmount: 0 };
   }
 
+  // ⚡ 필요한 컬럼만 조회하여 네트워크 부하 감소
   const { data: bettingData, error } = await supabase
     .from('game_records')
     .select('bet_amount, win_amount')
     .in('user_id', userIds)
-    .gte('created_at', startDate)
-    .lte('created_at', endDate);
+    .gte('played_at', startDate)
+    .lte('played_at', endDate);
 
   if (error) {
     console.error('베팅 데이터 조회 오류:', error);
     return { totalBetAmount: 0, totalLossAmount: 0 };
   }
 
-  if (!bettingData) {
+  if (!bettingData || bettingData.length === 0) {
     return { totalBetAmount: 0, totalLossAmount: 0 };
   }
 
-  const totalBetAmount = bettingData.reduce((sum, record) => sum + (record.bet_amount || 0), 0);
-  const totalLossAmount = bettingData.reduce((sum, record) => {
-    const loss = (record.bet_amount || 0) - (record.win_amount || 0);
-    return sum + (loss > 0 ? loss : 0);
-  }, 0);
+  // ⚡ 한 번의 순회로 두 값 모두 계산
+  let totalBetAmount = 0;
+  let totalLossAmount = 0;
+  
+  for (const record of bettingData) {
+    const bet = record.bet_amount || 0;
+    const win = record.win_amount || 0;
+    totalBetAmount += bet;
+    const loss = bet - win;
+    if (loss > 0) {
+      totalLossAmount += loss;
+    }
+  }
 
   return { totalBetAmount, totalLossAmount };
 }
@@ -276,7 +295,7 @@ export async function calculatePartnerCommission(
 }
 
 /**
- * 직속 하위 파트너들의 커미션 계산
+ * ⚡ 최적화: 직속 하위 파트너들의 커미션을 병렬 계산
  * @param parentId 상위 파트너 ID
  * @param startDate 시작 날짜
  * @param endDate 종료 날짜
@@ -305,18 +324,17 @@ export async function calculateChildPartnersCommission(
       return [];
     }
 
-    // 각 파트너별 커미션 계산
-    const commissionsData: PartnerCommissionInfo[] = [];
-
-    for (const partner of childPartners) {
-      const commission = await calculatePartnerCommission(
+    // ⚡ 병렬 처리: 모든 파트너의 커미션을 동시에 계산
+    const commissionsPromises = childPartners.map(partner =>
+      calculatePartnerCommission(
         partner.id,
         partner,
         startDate,
         endDate
-      );
-      commissionsData.push(commission);
-    }
+      )
+    );
+
+    const commissionsData = await Promise.all(commissionsPromises);
 
     return commissionsData;
   } catch (error) {
@@ -388,7 +406,7 @@ export async function calculateMyIncome(
 }
 
 /**
- * 하위 파트너 지급액 계산
+ * ⚡ 최적화: 하위 파트너 지급액을 병렬 계산
  * @param parentId 상위 파트너 ID
  * @param startDate 시작 날짜
  * @param endDate 종료 날짜
@@ -433,14 +451,19 @@ export async function calculatePartnerPayments(
       };
     }
 
-    const details: PartnerPaymentDetail[] = [];
+    // ⚡ 병렬 처리: 모든 파트너의 지급액을 동시에 계산
+    const paymentPromises = childPartners.map(partner =>
+      calculatePartnerPayment(partner, startDate, endDate)
+    );
+
+    const details = await Promise.all(paymentPromises);
+
+    // 총합 계산
     let totalRolling = 0;
     let totalLosing = 0;
     let totalWithdrawal = 0;
 
-    for (const partner of childPartners) {
-      const payment = await calculatePartnerPayment(partner, startDate, endDate);
-      details.push(payment);
+    for (const payment of details) {
       totalRolling += payment.rolling_payment;
       totalLosing += payment.losing_payment;
       totalWithdrawal += payment.withdrawal_payment;
