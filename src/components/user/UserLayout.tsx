@@ -203,6 +203,45 @@ export function UserLayout({ user, currentRoute, onRouteChange, onLogout, childr
   }, [user?.id]);
 
   // ==========================================================================
+  // 사용자 is_online 상태 모니터링 (60번 보유금 조회 후 오프라인 처리 감지)
+  // ==========================================================================
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('👤 [온라인 상태 모니터링] 시작:', user.id);
+
+    const channel = supabase
+      .channel('user_online_status_monitor')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${user.id}`
+        },
+        async (payload) => {
+          const { new: newUser, old: oldUser } = payload as any;
+
+          // 온라인 → 오프라인 전환 감지 (balance_sync_call_count 60회 초과로 인한 자동 로그아웃)
+          if (oldUser?.is_online === true && newUser?.is_online === false) {
+            console.log('⚠️ [자동 로그아웃] 60회 보유금 조회 초과로 오프라인 전환 감지');
+            
+            // 즉시 로그아웃 처리
+            console.log('🚪 [자동 로그아웃] 실행');
+            onLogout();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('👤 [온라인 상태 모니터링] 종료');
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, onLogout]);
+
+  // ==========================================================================
   // 게임창 닫힘 감지 시 세션 종료 + 보유금 동기화
   // ==========================================================================
   useEffect(() => {

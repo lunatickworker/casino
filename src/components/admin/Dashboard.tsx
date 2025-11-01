@@ -155,14 +155,13 @@ export function Dashboard({ user }: DashboardProps) {
       console.log('');
       console.log('🔧 직접 SELECT 쿼리 시작 (RPC 제거)...');
       
-      // 오늘 날짜 (KST 기준)
+      // 오늘 날짜 (UTC 기준 오늘 00:00:00)
       const now = new Date();
-      const kstOffset = 9 * 60 * 60 * 1000;
-      const kstDate = new Date(now.getTime() + kstOffset);
-      const todayStart = new Date(kstDate.getFullYear(), kstDate.getMonth(), kstDate.getDate());
-      const todayStartISO = new Date(todayStart.getTime() - kstOffset).toISOString();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayStartISO = todayStart.toISOString();
       
-      console.log('📅 오늘 시작 시각:', todayStartISO);
+      console.log('📅 오늘 시작 시각 (UTC):', todayStartISO);
+      console.log('📅 현재 시각 (로컬):', now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }));
 
       // ✅ 권한별 하위 파트너 ID 목록 조회
       let allowedPartnerIds: string[] = [];
@@ -262,11 +261,13 @@ export function Dashboard({ user }: DashboardProps) {
       if (directUserIds.length > 0) {
         const { data: depositData } = await supabase
           .from('transactions')
-          .select('amount')
+          .select('amount, created_at')
           .in('transaction_type', ['deposit', 'admin_deposit'])
-          .eq('status', 'completed')
+          .in('status', ['approved', 'completed'])
           .in('user_id', directUserIds)
           .gte('created_at', todayStartISO);
+        
+        console.log('💰 직속 회원 입금 데이터:', depositData);
         directDeposit = depositData?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       }
 
@@ -275,11 +276,13 @@ export function Dashboard({ user }: DashboardProps) {
       if (directUserIds.length > 0) {
         const { data: withdrawalData } = await supabase
           .from('transactions')
-          .select('amount')
+          .select('amount, created_at')
           .in('transaction_type', ['withdrawal', 'admin_withdrawal'])
-          .eq('status', 'completed')
+          .in('status', ['approved', 'completed'])
           .in('user_id', directUserIds)
           .gte('created_at', todayStartISO);
+        
+        console.log('💸 직속 회원 출금 데이터:', withdrawalData);
         directWithdrawal = withdrawalData?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       }
 
@@ -288,11 +291,13 @@ export function Dashboard({ user }: DashboardProps) {
       if (subPartnerUserIds.length > 0) {
         const { data: depositData } = await supabase
           .from('transactions')
-          .select('amount')
+          .select('amount, created_at')
           .in('transaction_type', ['deposit', 'admin_deposit'])
-          .eq('status', 'completed')
+          .in('status', ['approved', 'completed'])
           .in('user_id', subPartnerUserIds)
           .gte('created_at', todayStartISO);
+        
+        console.log('💰 하위 파트너 회원 입금 데이터:', depositData);
         subPartnerDeposit = depositData?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       }
 
@@ -301,11 +306,13 @@ export function Dashboard({ user }: DashboardProps) {
       if (subPartnerUserIds.length > 0) {
         const { data: withdrawalData } = await supabase
           .from('transactions')
-          .select('amount')
+          .select('amount, created_at')
           .in('transaction_type', ['withdrawal', 'admin_withdrawal'])
-          .eq('status', 'completed')
+          .in('status', ['approved', 'completed'])
           .in('user_id', subPartnerUserIds)
           .gte('created_at', todayStartISO);
+        
+        console.log('💸 하위 파트너 회원 출금 데이터:', withdrawalData);
         subPartnerWithdrawal = withdrawalData?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       }
 

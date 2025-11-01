@@ -142,8 +142,6 @@ export function md5Hash(input: string): string {
   return toHex(a) + toHex(b) + toHex(c) + toHex(d);
 }
 
-// import { supabase } from './supabase';
-
 // Invest API 설정
 const INVEST_API_BASE_URL = 'https://api.invest-ho.com';
 const PROXY_URL = 'https://vi8282.com/proxy';

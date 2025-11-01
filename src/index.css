@@ -1153,6 +1153,10 @@
     height: calc(var(--spacing) * 10);
   }
 
+  .h-11 {
+    height: calc(var(--spacing) * 11);
+  }
+
   .h-12 {
     height: calc(var(--spacing) * 12);
   }
@@ -1313,10 +1317,6 @@
     min-height: 80px;
   }
 
-  .min-h-\[81px\] {
-    min-height: 81px;
-  }
-
   .min-h-\[120px\] {
     min-height: 120px;
   }
@@ -1391,6 +1391,10 @@
 
   .w-10 {
     width: calc(var(--spacing) * 10);
+  }
+
+  .w-11 {
+    width: calc(var(--spacing) * 11);
   }
 
   .w-12 {
@@ -1996,6 +2000,10 @@
 
   .overflow-y-auto {
     overflow-y: auto;
+  }
+
+  .overflow-y-hidden {
+    overflow-y: hidden;
   }
 
   .rounded {
