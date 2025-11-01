@@ -465,12 +465,12 @@ export function UserSlot({ user, onRouteChange }: UserSlotProps) {
       <div className="relative z-10 space-y-8 p-4 sm:p-6 lg:p-8">
         {/* VIP 헤더 */}
         <div className="text-center space-y-6">
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <Coins className="w-16 h-16 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
-            <h1 className="text-6xl lg:text-7xl font-bold gold-text neon-glow">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <Coins className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold gold-text neon-glow whitespace-nowrap">
               VIP 슬롯 머신
             </h1>
-            <Coins className="w-16 h-16 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
+            <Coins className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)]" />
           </div>
           <p className="text-3xl text-yellow-100 tracking-wide">
             최고 수익률과 메가 잭팟이 기다리는 프리미엄 슬롯

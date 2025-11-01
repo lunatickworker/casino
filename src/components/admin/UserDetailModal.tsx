@@ -25,6 +25,7 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { PasswordChangeSection } from "./PasswordChangeSection";
 
 interface UserDetailModalProps {
   user: any;
@@ -74,6 +75,8 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
   const [evolutionLimit, setEvolutionLimit] = useState<number>(100000000); // 기본값 1억
   const [currentEvolutionLimit, setCurrentEvolutionLimit] = useState<number | null>(null);
   const [evolutionLoading, setEvolutionLoading] = useState(false);
+
+
 
   // 기본 통계 계산
   const calculateStats = async () => {
@@ -464,6 +467,8 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
     }
   };
 
+
+
   // 탭 변경 시 데이터 로드
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -708,6 +713,9 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                     )}
                   </div>
                 </div>
+
+                {/* 비밀번호 변경 섹션 */}
+                <PasswordChangeSection userId={user.id} />
               </div>
             )}
           </TabsContent>

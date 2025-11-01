@@ -153,6 +153,8 @@ export function UserLogin({ onLoginSuccess }: UserLoginProps) {
     setError(null);
 
     try {
+      console.log('🔐 사용자 로그인 시도:', loginData.username.trim());
+
       // 사용자 로그인 함수 호출
       const { data, error: loginError } = await supabase
         .rpc('user_login', {
@@ -160,24 +162,36 @@ export function UserLogin({ onLoginSuccess }: UserLoginProps) {
           p_password: loginData.password
         });
 
+      console.log('🔐 로그인 RPC 응답:', { data, error: loginError });
+
       if (loginError) {
+        console.error('❌ 로그인 RPC 에러:', loginError);
         throw loginError;
       }
 
       if (!data || data.length === 0) {
+        console.warn('⚠️ 로그인 실패: 사용자를 찾을 수 없거나 비밀번호가 일치하지 않음');
         setError('아이디 또는 비밀번호가 올바르지 않습니다.');
         return;
       }
 
       const user = data[0];
+      console.log('✅ 로그인 성공:', { 
+        username: user.username, 
+        nickname: user.nickname,
+        status: user.status,
+        vip_level: user.vip_level 
+      });
 
       // 사용자 상태 확인
       if (user.status === 'blocked') {
+        console.warn('⚠️ 차단된 계정:', user.username);
         setError('차단된 계정입니다. 고객센터에 문의해주세요.');
         return;
       }
 
       if (user.status === 'pending') {
+        console.warn('⚠️ 승인 대기 중인 계정:', user.username);
         setError('승인 대기 중인 계정입니다. 잠시 후 다시 시도해주세요.');
         return;
       }

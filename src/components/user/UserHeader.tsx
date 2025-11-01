@@ -453,7 +453,7 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
         {/* 상단 골든 라인 */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent" />
         
-        <div className="flex items-center justify-around py-3 px-1 safe-area-bottom">
+        <div className="flex items-center justify-around py-2 px-1 safe-area-bottom">
           {menuItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const isActive = currentRoute === item.path;
@@ -464,15 +464,15 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
                 size="sm"
                 onClick={() => onRouteChange(item.path)}
                 className={`
-                  flex flex-col items-center justify-center gap-1.5 px-1 py-3 min-h-[90px] relative flex-1
+                  flex flex-col items-center justify-center gap-1 px-1 py-2 min-h-[81px] relative flex-1
                   ${isActive 
                     ? 'text-yellow-400' 
                     : 'text-yellow-200/70 hover:text-yellow-100'
                   }
                 `}
               >
-                <Icon className={`w-11 h-11 sm:w-12 sm:h-12 flex-shrink-0 ${isActive ? 'drop-shadow-[0_0_12px_rgba(250,204,21,1)]' : ''}`} />
-                <span className={`text-sm sm:text-base leading-tight text-center ${isActive ? 'neon-glow' : ''} whitespace-nowrap px-1`}>
+                <Icon className={`w-10 h-10 sm:w-11 sm:h-11 flex-shrink-0 ${isActive ? 'drop-shadow-[0_0_12px_rgba(250,204,21,1)]' : ''}`} />
+                <span className={`text-xs sm:text-sm leading-tight text-center ${isActive ? 'neon-glow' : ''} whitespace-nowrap px-1`}>
                   {item.label}
                 </span>
                 {isActive && (

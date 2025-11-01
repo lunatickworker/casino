@@ -5,7 +5,7 @@
 -- 기존 함수 DROP
 DROP FUNCTION IF EXISTS user_login(text, text);
 
--- 사용자 로그인 함수 재생성
+-- 사용자 로그인 함수 재생성 (평문 비밀번호 지원)
 CREATE OR REPLACE FUNCTION user_login(
     p_username TEXT,
     p_password TEXT
@@ -24,7 +24,7 @@ RETURNS TABLE (
     updated_at TIMESTAMP WITH TIME ZONE
 ) AS $function$
 BEGIN
-    -- 사용자 인증 및 정보 반환
+    -- 사용자 인증 및 정보 반환 (평문 비밀번호 또는 해시 비밀번호 모두 지원)
     RETURN QUERY
     SELECT 
         u.id,
@@ -40,7 +40,10 @@ BEGIN
         u.updated_at
     FROM users u
     WHERE u.username = p_username 
-    AND u.password_hash = crypt(p_password, u.password_hash);
+    AND (
+        u.password_hash = p_password  -- 평문 비밀번호 (기존 방식)
+        OR u.password_hash = crypt(p_password, u.password_hash)  -- 암호화된 비밀번호
+    );
     
     -- ✅ 로그인 성공 시: 온라인 상태 변경 + 호출 카운터 초기화 + 시작 시간 기록
     IF FOUND THEN

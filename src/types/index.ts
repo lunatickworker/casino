@@ -11,6 +11,12 @@ export interface User {
   is_online: boolean;
   last_login_at?: string;
   created_at: string;
+  updated_at?: string;
+  email?: string;
+  phone?: string;
+  bank_name?: string;
+  bank_account?: string;
+  bank_holder?: string;
 }
 
 export interface Partner {

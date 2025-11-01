@@ -1153,10 +1153,6 @@
     height: calc(var(--spacing) * 10);
   }
 
-  .h-11 {
-    height: calc(var(--spacing) * 11);
-  }
-
   .h-12 {
     height: calc(var(--spacing) * 12);
   }
@@ -1317,8 +1313,8 @@
     min-height: 80px;
   }
 
-  .min-h-\[90px\] {
-    min-height: 90px;
+  .min-h-\[81px\] {
+    min-height: 81px;
   }
 
   .min-h-\[120px\] {
@@ -1395,10 +1391,6 @@
 
   .w-10 {
     width: calc(var(--spacing) * 10);
-  }
-
-  .w-11 {
-    width: calc(var(--spacing) * 11);
   }
 
   .w-12 {
@@ -6928,6 +6920,13 @@
   }
 
   @media (hover: hover) {
+    .hover\:to-pink-700:hover {
+      --tw-gradient-to: var(--color-pink-700);
+      --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
+    }
+  }
+
+  @media (hover: hover) {
     .hover\:to-red-700:hover {
       --tw-gradient-to: var(--color-red-700);
       --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
@@ -8007,8 +8006,8 @@
   }
 
   @media (width >= 40rem) {
-    .sm\:h-12 {
-      height: calc(var(--spacing) * 12);
+    .sm\:h-11 {
+      height: calc(var(--spacing) * 11);
     }
   }
 
@@ -8037,8 +8036,8 @@
   }
 
   @media (width >= 40rem) {
-    .sm\:w-12 {
-      width: calc(var(--spacing) * 12);
+    .sm\:w-11 {
+      width: calc(var(--spacing) * 11);
     }
   }
 
@@ -8182,6 +8181,13 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:text-5xl {
+      font-size: var(--text-5xl);
+      line-height: var(--tw-leading, var(--text-5xl--line-height));
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:text-base {
       font-size: var(--text-base);
       line-height: var(--tw-leading, var(--text-base--line-height));
@@ -8192,6 +8198,13 @@
     .sm\:text-lg {
       font-size: var(--text-lg);
       line-height: var(--tw-leading, var(--text-lg--line-height));
+    }
+  }
+
+  @media (width >= 40rem) {
+    .sm\:text-sm {
+      font-size: var(--text-sm);
+      line-height: var(--tw-leading, var(--text-sm--line-height));
     }
   }
 
@@ -8488,6 +8501,13 @@
   @media (width >= 64rem) {
     .lg\:pb-4 {
       padding-bottom: calc(var(--spacing) * 4);
+    }
+  }
+
+  @media (width >= 64rem) {
+    .lg\:text-6xl {
+      font-size: var(--text-6xl);
+      line-height: var(--tw-leading, var(--text-6xl--line-height));
     }
   }
 
