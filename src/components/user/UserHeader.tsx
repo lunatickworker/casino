@@ -449,11 +449,11 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
       </header>
 
       {/* Mobile Bottom Navigation - VIP 럭셔리 스타일 (카지노부터 시작) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-yellow-600/30 shadow-2xl overflow-x-hidden">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-yellow-600/30 shadow-2xl overflow-hidden">
         {/* 상단 골든 라인 */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent" />
         
-        <div className="flex items-center justify-around py-3 px-1 safe-area-bottom">
+        <div className="flex items-center justify-around py-4 px-1 safe-area-bottom overflow-y-hidden">
           {menuItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const isActive = currentRoute === item.path;
@@ -464,7 +464,7 @@ export function UserHeader({ user, currentRoute, onRouteChange, onLogout }: User
                 size="sm"
                 onClick={() => onRouteChange(item.path)}
                 className={`
-                  flex flex-col items-center justify-center gap-1.5 px-1 py-2 min-h-[50px] relative flex-1
+                  flex flex-col items-center justify-center gap-1.5 px-1 py-6 relative flex-1                  
                   ${isActive 
                     ? 'text-yellow-400' 
                     : 'text-yellow-200/70 hover:text-yellow-100'
