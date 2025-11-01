@@ -1510,6 +1510,10 @@
     width: 1px;
   }
 
+  .\!max-w-\[800px\] {
+    max-width: 800px !important;
+  }
+
   .\!max-w-\[2400px\] {
     max-width: 2400px !important;
   }

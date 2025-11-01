@@ -659,7 +659,7 @@ export function MessageCenter({ user }: MessageCenterProps) {
               새 메시지
             </Button>
           </DialogTrigger>
-            <DialogContent className="!max-w-[mi500px,90vw)] w-[90vw] max-h-[85vh] overflow-hidden glass-card p-0 flex flex-col">
+            <DialogContent className="!max-w-[800px] w-[95vw] max-h-[85vh] overflow-hidden glass-card p-0 flex flex-col">
               {/* 헤더 - 강조된 디자인 */}
               <DialogHeader className="pb-5 border-b border-slate-700/50 bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-8 pt-6 rounded-t-lg bg-slate-900 backdrop-blur-xl flex-shrink-0">
                 <DialogTitle className="flex items-center gap-3 text-2xl text-slate-50">
