@@ -8,6 +8,9 @@ interface BalanceSyncManagerProps {
   user: Partner;
 }
 
+// ⚠️ 자동 로그아웃 카운트 제한 설정 (테스트: 1, 운영: 60)
+const LOGOUT_COUNT_LIMIT = 60; // 🔧 여기 수정: 60으로 변경
+
 /**
  * ✅ 보유금 자동 동기화 매니저
  * 
@@ -20,7 +23,7 @@ interface BalanceSyncManagerProps {
  * ✅ 온라인 사용자 전용 동기화:
  * - GET /api/account/balance (온라인 사용자만 개별 조회)
  * - 30초마다 실행 (PATCH와 10초 차이)
- * - 60회 도달 시 자동 로그아웃 (30분)
+ * - 설정된 횟수 도달 시 자동 로그아웃
  */
 export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
   const isSyncingRef = useRef(false);
@@ -153,14 +156,16 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
             console.log(`✅ [OnlineBalanceSync] 보유금 업데이트 (${username}):`, {
               new_balance: newBalance,
               call_count: newCount,
-              will_logout: newCount >= 60
+              limit: LOGOUT_COUNT_LIMIT,
+              will_logout: newCount >= LOGOUT_COUNT_LIMIT
             });
 
-            // 60회 도달 시 강제 로그아웃
-            if (newCount >= 60) {
-              console.log(`🚪 [OnlineBalanceSync] 30분 경과 (60회 호출) - 강제 로그아웃 (${username}):`, {
+            // 설정된 카운트 도달 시 강제 로그아웃
+            if (newCount >= LOGOUT_COUNT_LIMIT) {
+              console.log(`🚪 [OnlineBalanceSync] 강제 로그아웃 (${username}):`, {
                 call_count: newCount,
-                duration: '30분'
+                limit: LOGOUT_COUNT_LIMIT,
+                duration: LOGOUT_COUNT_LIMIT === 60 ? '30분' : '테스트 모드'
               });
 
               // 보유금 업데이트 + 로그아웃 + 카운터 초기화
@@ -176,7 +181,7 @@ export function BalanceSyncManager({ user }: BalanceSyncManagerProps) {
 
               logoutCount++;
             } else {
-              // ✅ 60회 미만이면 보유금 업데이트 + 카운터 증가
+              // ✅ 설정된 카운트 미만이면 보유금 업데이트 + 카운터 증가
               await supabase
                 .from('users')
                 .update({

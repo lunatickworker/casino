@@ -113,6 +113,10 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
   const [showKickDialog, setShowKickDialog] = useState(false);
   const [syncingBalance, setSyncingBalance] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  
+  // 일괄 종료용 체크박스 상태
+  const [selectedSessions, setSelectedSessions] = useState<Set<number>>(new Set());
+  const [showBulkKickDialog, setShowBulkKickDialog] = useState(false);
 
   // 1초마다 접속시간 업데이트용
   useEffect(() => {
@@ -422,7 +426,7 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
     }
   };
 
-  // 강제 종료
+  // 강제 종료 (단일)
   const handleKickUser = async () => {
     if (!selectedSession) return;
 
@@ -452,6 +456,60 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
     }
   };
 
+  // 일괄 강제 종료
+  const handleBulkKickSessions = async () => {
+    if (selectedSessions.size === 0) return;
+
+    try {
+      const sessionIds = Array.from(selectedSessions);
+      
+      const { error } = await supabase
+        .from('game_launch_sessions')
+        .update({ 
+          status: 'force_ended',
+          ended_at: new Date().toISOString()
+        })
+        .in('id', sessionIds);
+
+      if (error) {
+        console.error('일괄 종료 오류:', error);
+        toast.error(`일괄 종료 실패: ${error.message}`);
+        return;
+      }
+
+      toast.success(`${selectedSessions.size}개 세션 강제 종료 완료`);
+      setShowBulkKickDialog(false);
+      setSelectedSessions(new Set());
+      
+      await loadSessions();
+    } catch (error) {
+      console.error('일괄 강제 종료 오류:', error);
+      toast.error('일괄 강제 종료 실패');
+    }
+  };
+
+  // 체크박스 토글
+  const toggleSessionSelection = (sessionId: number) => {
+    setSelectedSessions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sessionId)) {
+        newSet.delete(sessionId);
+      } else {
+        newSet.add(sessionId);
+      }
+      return newSet;
+    });
+  };
+
+  // 전체 선택/해제
+  const toggleAllSessions = () => {
+    if (selectedSessions.size === sessions.length) {
+      setSelectedSessions(new Set());
+    } else {
+      setSelectedSessions(new Set(sessions.map(s => s.id)));
+    }
+  };
+
   // 통계 계산
   const totalUsers = sessions.length;
   const totalGameBalance = sessions.reduce((sum, s) => sum + s.current_balance, 0);
@@ -470,6 +528,25 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
   }
 
   const columns = [
+    {
+      key: 'checkbox',
+      header: (
+        <input
+          type="checkbox"
+          checked={selectedSessions.size === sessions.length && sessions.length > 0}
+          onChange={toggleAllSessions}
+          className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-purple-500 focus:ring-purple-500 focus:ring-offset-slate-900"
+        />
+      ),
+      render: (_: any, row: OnlineSession) => (
+        <input
+          type="checkbox"
+          checked={selectedSessions.has(row.id)}
+          onChange={() => toggleSessionSelection(row.id)}
+          className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-purple-500 focus:ring-purple-500 focus:ring-offset-slate-900"
+        />
+      ),
+    },
     {
       key: 'username',
       header: '사용자',
@@ -586,10 +663,22 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
             실시간 게임 사용자 관리
           </p>
         </div>
-        <Button onClick={() => loadSessions(true)} disabled={loading || refreshing}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          새로고침
-        </Button>
+        <div className="flex items-center gap-3">
+          {selectedSessions.size > 0 && (
+            <Button 
+              variant="destructive"
+              onClick={() => setShowBulkKickDialog(true)}
+              className="bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 border border-red-500/30"
+            >
+              <Power className="w-4 h-4 mr-2" />
+              선택한 게임 종료 ({selectedSessions.size})
+            </Button>
+          )}
+          <Button onClick={() => loadSessions(true)} disabled={loading || refreshing}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            새로고침
+          </Button>
+        </div>
       </div>
 
       {/* 통계 카드 */}
@@ -645,6 +734,25 @@ export function OnlineUsers({ user }: OnlineUsersProps) {
             </Button>
             <Button variant="destructive" onClick={handleKickUser}>
               강제 종료
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showBulkKickDialog} onOpenChange={setShowBulkKickDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>선택한 게임 일괄 종료</DialogTitle>
+            <DialogDescription>
+              선택한 {selectedSessions.size}개의 게임 세션을 모두 강제 종료하시겠습니까?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkKickDialog(false)}>
+              취소
+            </Button>
+            <Button variant="destructive" onClick={handleBulkKickSessions}>
+              {selectedSessions.size}개 강제 종료
             </Button>
           </DialogFooter>
         </DialogContent>

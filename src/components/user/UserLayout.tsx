@@ -223,9 +223,30 @@ export function UserLayout({ user, currentRoute, onRouteChange, onLogout, childr
         async (payload) => {
           const { new: newUser, old: oldUser } = payload as any;
 
+          // ✅ balance_sync_call_count 60회 도달 감지 - 즉시 로그아웃
+          const oldCount = oldUser?.balance_sync_call_count || 0;
+          const newCount = newUser?.balance_sync_call_count || 0;
+          
+          // ⚠️ 테스트용: 1회로 설정 (운영 시 60으로 변경)
+          const LOGOUT_COUNT_LIMIT = 60; // 🔧 여기 수정: 60으로 변경
+          
+          if (newCount >= LOGOUT_COUNT_LIMIT && oldCount < LOGOUT_COUNT_LIMIT) {
+            console.log('⚠️ [자동 로그아웃] 보유금 조회 도달 감지:', {
+              old_count: oldCount,
+              new_count: newCount,
+              limit: LOGOUT_COUNT_LIMIT,
+              duration: LOGOUT_COUNT_LIMIT === 60 ? '30분 경과' : '테스트 모드'
+            });
+            
+            // 즉시 로그아웃 처리
+            console.log('🚪 [자동 로그아웃] 실행');
+            onLogout();
+            return;
+          }
+
           // 온라인 → 오프라인 전환 감지 (balance_sync_call_count 60회 초과로 인한 자동 로그아웃)
           if (oldUser?.is_online === true && newUser?.is_online === false) {
-            console.log('⚠️ [자동 로그아웃] 60회 보유금 조회 초과로 오프라인 전환 감지');
+            console.log('⚠️ [자동 로그아웃] 오프라인 전환 감지');
             
             // 즉시 로그아웃 처리
             console.log('🚪 [자동 로그아웃] 실행');
