@@ -9,7 +9,7 @@ import { Badge } from "../ui/badge";
 import { DataTable } from "../common/DataTable";
 import { AdminDialog as Dialog, AdminDialogContent as DialogContent, AdminDialogDescription as DialogDescription, AdminDialogHeader as DialogHeader, AdminDialogTitle as DialogTitle } from "./AdminDialog";
 import { 
-  Image, Save, Plus, Edit, Trash2, Eye, FileText, Calendar, Users, Upload, X
+  Image, Save, Plus, Edit, Trash2, Eye, FileText, Calendar, Users, Upload, X, Info
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { Partner } from "../../types";
@@ -468,232 +468,284 @@ export function BannerManagement({ user }: BannerManagementProps) {
         />
       </div>
 
-      {/* 배너 생성/수정 모달 */}
+      {/* 배너 생성/수정 모달 - 16:9 비율 최적화 */}
       <Dialog open={showForm && user.level <= 5} onOpenChange={(open) => !open && resetForm()}>
-        <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden glass-card">
-          <DialogHeader className="pb-3">
-            <DialogTitle className="flex items-center gap-2 text-lg text-slate-100">
-              <Image className="h-5 w-5 text-blue-400" />
+        <DialogContent className="!max-w-[min(1600px,95vw)] w-[95vw] max-h-[85vh] overflow-y-auto glass-card p-0">
+          {/* 헤더 - 강조된 디자인 */}
+          <DialogHeader className="pb-5 border-b border-slate-700/50 bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-8 pt-6 rounded-t-lg sticky top-0 z-10">
+            <DialogTitle className="flex items-center gap-3 text-2xl text-slate-50">
+              <div className="p-2.5 bg-blue-500/20 rounded-lg">
+                <Image className="h-7 w-7 text-blue-400" />
+              </div>
               {editingBanner ? '배너 수정' : '새 배너 만들기'}
             </DialogTitle>
-            <DialogDescription className="text-sm text-slate-400">
-              직사각형 팝업 형태의 배너를 생성하여 사용자에게 공지사항을 전달하세요.
+            <DialogDescription className="text-slate-300 mt-2 text-base">
+              16:9 비율로 최적화된 배너를 생성하여 사용자에게 효과적으로 공지사항을 전달하세요.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            {/* 왼쪽 컬럼 - 기본 정보 및 이미지 */}
-            <div className="space-y-3">
-              {/* 기본 정보 */}
-              <div className="space-y-3 p-3 border border-slate-700/50 rounded-lg bg-slate-900/30">
-                <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-blue-400" />
-                  기본 정보
-                </h4>
+
+          {/* 메인 컨텐츠 - 가로 3컬럼 레이아웃 */}
+          <div className="grid grid-cols-12 gap-6 px-8 py-6">
+            {/* 왼쪽 - 기본 정보 (4컬럼) */}
+            <div className="col-span-4 space-y-4">
+              <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-1 w-8 bg-blue-500 rounded-full"></div>
+                  <h4 className="font-semibold text-slate-100">기본 정보</h4>
+                </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="banner_title" className="text-xs text-slate-300">배너 제목 *</Label>
+                <div className="space-y-3">
+                  <Label htmlFor="banner_title" className="text-slate-200 flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 text-blue-400" />
+                    배너 제목 *
+                  </Label>
                   <Input
                     id="banner_title"
                     value={bannerForm.title || ''}
                     onChange={(e) => setBannerForm(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="배너 제목을 입력하세요"
-                    className="input-premium h-9 text-sm"
+                    placeholder="눈에 띄는 제목을 입력하세요"
+                    className="input-premium h-11 text-base border-slate-600 focus:border-blue-500 bg-slate-800/50"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="banner_type" className="text-xs text-slate-300">배너 타입</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3">
+                    <Label className="text-slate-200">배너 타입</Label>
                     <Select
                       value={bannerForm.banner_type}
                       onValueChange={(value: 'popup' | 'banner') => 
                         setBannerForm(prev => ({ ...prev, banner_type: value }))
                       }
                     >
-                      <SelectTrigger className="h-9 text-sm bg-slate-800 border-slate-700">
+                      <SelectTrigger className="h-11 bg-slate-800/50 border-slate-600 hover:border-blue-500 transition-colors">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="popup">팝업</SelectItem>
-                        <SelectItem value="banner">배너</SelectItem>
+                        <SelectItem value="popup">🔔 팝업</SelectItem>
+                        <SelectItem value="banner">📌 배너</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="banner_status" className="text-xs text-slate-300">상태</Label>
+                  <div className="space-y-3">
+                    <Label className="text-slate-200">상태</Label>
                     <Select
                       value={bannerForm.status}
                       onValueChange={(value: 'active' | 'inactive') => 
                         setBannerForm(prev => ({ ...prev, status: value }))
                       }
                     >
-                      <SelectTrigger className="h-9 text-sm bg-slate-800 border-slate-700">
+                      <SelectTrigger className="h-11 bg-slate-800/50 border-slate-600 hover:border-blue-500 transition-colors">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="active">활성</SelectItem>
-                        <SelectItem value="inactive">비활성</SelectItem>
+                        <SelectItem value="active">✅ 활성</SelectItem>
+                        <SelectItem value="inactive">⏸️ 비활성</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="target_audience" className="text-xs text-slate-300">대상</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3">
+                    <Label className="text-slate-200">대상</Label>
                     <Select
                       value={bannerForm.target_audience}
                       onValueChange={(value: 'all' | 'users' | 'partners') => 
                         setBannerForm(prev => ({ ...prev, target_audience: value }))
                       }
                     >
-                      <SelectTrigger className="h-9 text-sm bg-slate-800 border-slate-700">
+                      <SelectTrigger className="h-11 bg-slate-800/50 border-slate-600 hover:border-blue-500 transition-colors">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="all">전체</SelectItem>
-                        <SelectItem value="users">사용자</SelectItem>
-                        <SelectItem value="partners">파트너</SelectItem>
+                        <SelectItem value="all">👥 전체</SelectItem>
+                        <SelectItem value="users">👤 사용자</SelectItem>
+                        <SelectItem value="partners">🤝 파트너</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="display_order" className="text-xs text-slate-300">순서</Label>
+                  <div className="space-y-3">
+                    <Label className="text-slate-200">표시 순서</Label>
                     <Input
                       id="display_order"
                       type="number"
                       value={bannerForm.display_order || 0}
                       onChange={(e) => setBannerForm(prev => ({ ...prev, display_order: parseInt(e.target.value) }))}
                       placeholder="0"
-                      className="input-premium h-9 text-sm"
+                      className="input-premium h-11 bg-slate-800/50 border-slate-600 focus:border-blue-500"
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* 이미지 업로드 */}
-              <div className="space-y-2 p-3 border border-slate-700/50 rounded-lg bg-slate-900/30">
+                {/* 날짜 설정 */}
+                <div className="space-y-3 pt-3 border-t border-slate-700/30">
+                  <Label className="text-slate-200 flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5 text-blue-400" />
+                    노출 기간
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="start_date" className="text-xs text-slate-400">시작</Label>
+                      <Input
+                        id="start_date"
+                        type="datetime-local"
+                        value={bannerForm.start_date || ''}
+                        onChange={(e) => setBannerForm(prev => ({ ...prev, start_date: e.target.value }))}
+                        className="h-10 bg-slate-800/50 border-slate-600 text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="end_date" className="text-xs text-slate-400">종료</Label>
+                      <Input
+                        id="end_date"
+                        type="datetime-local"
+                        value={bannerForm.end_date || ''}
+                        onChange={(e) => setBannerForm(prev => ({ ...prev, end_date: e.target.value }))}
+                        className="h-10 bg-slate-800/50 border-slate-600 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 중앙 - 이미지 업로드 (4컬럼) */}
+            <div className="col-span-4 space-y-4">
+              <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg h-full">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                    <Image className="h-4 w-4 text-blue-400" />
-                    배너 이미지
-                  </h4>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1 w-8 bg-purple-500 rounded-full"></div>
+                    <h4 className="font-semibold text-slate-100">배너 이미지</h4>
+                  </div>
                   {imagePreview && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={handleImageRemove}
-                      className="h-7 text-xs text-red-400 hover:text-red-300"
+                      className="h-8 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
                     >
-                      <X className="h-3 w-3 mr-1" />
+                      <X className="h-4 w-4 mr-1" />
                       제거
                     </Button>
                   )}
                 </div>
 
-                {!imagePreview ? (
-                  <Label 
-                    htmlFor="banner_image_upload" 
-                    className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-blue-500 transition-colors bg-slate-800/50"
-                  >
-                    <Upload className="h-8 w-8 mb-2 text-slate-400" />
-                    <p className="text-xs text-slate-300 mb-1">
-                      <span className="font-semibold">클릭하여 업로드</span>
+                <div className="space-y-3">
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <p className="text-xs text-blue-300 flex items-center gap-2">
+                      <Info className="h-3.5 w-3.5" />
+                      권장 비율: 16:9 (예: 1920x1080px)
                     </p>
-                    <p className="text-[10px] text-slate-400">
-                      JPG, PNG, GIF, WebP (최대 2MB)
-                    </p>
-                    <Input
-                      id="banner_image_upload"
-                      type="file"
-                      accept="image/jpeg,image/png,image/gif,image/webp"
-                      onChange={handleImageSelect}
-                      className="hidden"
-                    />
-                  </Label>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="border border-slate-600 rounded-lg p-2 bg-slate-800">
-                      <img 
-                        src={imagePreview} 
-                        alt="배너 미리보기"
-                        className="max-w-full h-auto max-h-32 rounded mx-auto"
-                      />
-                    </div>
-                    {selectedImageFile && (
-                      <p className="text-[10px] text-slate-400 text-center">
-                        {selectedImageFile.name} ({(selectedImageFile.size / 1024).toFixed(0)}KB)
-                      </p>
-                    )}
                   </div>
-                )}
+
+                  {!imagePreview ? (
+                    <Label 
+                      htmlFor="banner_image_upload" 
+                      className="flex flex-col items-center justify-center w-full h-[280px] border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-500/5 transition-all bg-slate-800/30 group"
+                    >
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="p-4 bg-slate-700/50 rounded-full group-hover:bg-blue-500/20 transition-colors">
+                          <Upload className="h-10 w-10 text-slate-400 group-hover:text-blue-400 transition-colors" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-slate-200 mb-1">
+                            <span className="font-semibold">클릭하여 이미지 업로드</span>
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            또는 드래그 앤 드롭
+                          </p>
+                        </div>
+                        <div className="px-4 py-2 bg-slate-700/30 rounded-full">
+                          <p className="text-xs text-slate-300">
+                            JPG, PNG, GIF, WebP · 최대 2MB
+                          </p>
+                        </div>
+                      </div>
+                      <Input
+                        id="banner_image_upload"
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                      />
+                    </Label>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="relative border-2 border-slate-600 rounded-xl overflow-hidden bg-slate-900 shadow-xl">
+                        <div className="aspect-video flex items-center justify-center">
+                          <img 
+                            src={imagePreview} 
+                            alt="배너 미리보기"
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                        <div className="absolute top-2 right-2">
+                          <Badge variant="secondary" className="bg-green-500/90 text-white">
+                            미리보기
+                          </Badge>
+                        </div>
+                      </div>
+                      {selectedImageFile && (
+                        <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <FileText className="h-4 w-4 text-blue-400" />
+                            <span className="text-sm truncate max-w-[180px]">{selectedImageFile.name}</span>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {(selectedImageFile.size / 1024).toFixed(0)} KB
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* 오른쪽 컬럼 - 배너 내용 */}
-            <div className="space-y-3">
-              {/* 배너 내용 */}
-              <div className="space-y-2 p-3 border border-slate-700/50 rounded-lg bg-slate-900/30 h-full">
-                <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-blue-400" />
-                  배너 내용
-                </h4>
+            {/* 오른쪽 - 배너 내용 (4컬럼) */}
+            <div className="col-span-4 space-y-4">
+              <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg h-full flex flex-col">
+                <div className="flex items-center gap-2">
+                  <div className="h-1 w-8 bg-green-500 rounded-full"></div>
+                  <h4 className="font-semibold text-slate-100">배너 내용</h4>
+                </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="banner_content" className="text-xs text-slate-300">내용 *</Label>
+                <div className="space-y-3 flex-1 flex flex-col">
+                  <Label htmlFor="banner_content" className="text-slate-200 flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 text-green-400" />
+                    내용 *
+                  </Label>
                   <Textarea
                     id="banner_content"
-                    rows={14}
                     value={bannerForm.content || ''}
                     onChange={(e) => setBannerForm(prev => ({ ...prev, content: e.target.value }))}
-                    placeholder="배너에 표시될 내용을 입력하세요. HTML 태그 사용 가능합니다."
-                    className="min-h-[280px] bg-slate-800 border-slate-700 text-sm resize-none"
+                    placeholder="배너에 표시될 내용을 입력하세요.&#10;&#10;• HTML 태그를 사용할 수 있습니다&#10;• 줄바꿈은 <br> 태그를 사용하세요&#10;• 강조는 <strong> 태그를 사용하세요"
+                    className="flex-1 min-h-[320px] bg-slate-800/50 border-slate-600 focus:border-green-500 resize-none text-base leading-relaxed"
                   />
-                  <p className="text-[10px] text-slate-400">
-                    사용 가능: &lt;p&gt;, &lt;br&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;span&gt;, &lt;div&gt;, &lt;a&gt;
-                  </p>
-                </div>
-
-                {/* 날짜 설정 */}
-                <div className="grid grid-cols-2 gap-2 pt-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="start_date" className="text-xs text-slate-300">시작 일시</Label>
-                    <Input
-                      id="start_date"
-                      type="datetime-local"
-                      value={bannerForm.start_date || ''}
-                      onChange={(e) => setBannerForm(prev => ({ ...prev, start_date: e.target.value }))}
-                      className="h-8 text-xs bg-slate-800 border-slate-700"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="end_date" className="text-xs text-slate-300">종료 일시</Label>
-                    <Input
-                      id="end_date"
-                      type="datetime-local"
-                      value={bannerForm.end_date || ''}
-                      onChange={(e) => setBannerForm(prev => ({ ...prev, end_date: e.target.value }))}
-                      className="h-8 text-xs bg-slate-800 border-slate-700"
-                    />
+                  <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      💡 <strong className="text-slate-300">사용 가능한 태그:</strong>
+                      <br />
+                      &lt;p&gt; &lt;br&gt; &lt;strong&gt; &lt;em&gt; &lt;span&gt; &lt;div&gt; &lt;a&gt; &lt;ul&gt; &lt;li&gt;
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
-
           </div>
           
-          {/* 버튼 - 모달 하단 */}
-          <div className="flex gap-3 pt-3 border-t border-slate-700/50 mt-3">
+          {/* 하단 액션 버튼 - 강조된 디자인 */}
+          <div className="flex gap-4 pt-6 border-t border-slate-700/50 px-8 pb-6 bg-slate-900/30 sticky bottom-0 z-10">
             <Button 
               onClick={saveBanner}
               disabled={saving || uploadingImage}
-              className="btn-premium-primary flex items-center gap-2 flex-1"
+              className="btn-premium-primary flex items-center gap-3 flex-1 h-12 text-base shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all"
             >
-              <Save className="h-4 w-4" />
+              <Save className="h-5 w-5" />
               {uploadingImage 
                 ? '이미지 업로드 중...' 
                 : editingBanner 
@@ -705,7 +757,7 @@ export function BannerManagement({ user }: BannerManagementProps) {
               onClick={resetForm}
               variant="outline"
               disabled={saving || uploadingImage}
-              className="border-slate-600 hover:bg-slate-700/50"
+              className="border-slate-600 hover:bg-slate-700/50 h-12 px-8 text-base"
             >
               취소
             </Button>

@@ -500,13 +500,13 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
     switch (status) {
       case 'approved':
       case 'completed':
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">승인</Badge>;
+        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">승인</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">대기</Badge>;
+        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">대기</Badge>;
       case 'rejected':
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">거절</Badge>;
+        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">거절</Badge>;
       default:
-        return <Badge className="text-xs">{status}</Badge>;
+        return <Badge>{status}</Badge>;
     }
   };
 
@@ -517,27 +517,27 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
       <DialogContent className="!max-w-[2400px] w-[98vw] max-h-[92vh] overflow-hidden glass-card border border-white/10 p-0">
         <DialogHeader className="border-b border-white/10 pb-3 pt-4 px-6">
           <DialogTitle className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <User className="h-4 w-4 text-white" />
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <User className="h-5 w-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span>{user.nickname}</span>
-                <span className="text-muted-foreground text-sm">({user.username})</span>
+                <span className="text-lg">{user.nickname}</span>
+                <span className="text-muted-foreground">({user.username})</span>
                 {user.status === 'active' ? (
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">활성</Badge>
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30">활성</Badge>
                 ) : user.status === 'suspended' ? (
-                  <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">정지</Badge>
+                  <Badge className="bg-red-500/20 text-red-400 border-red-500/30">정지</Badge>
                 ) : (
-                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">대기</Badge>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">대기</Badge>
                 )}
                 {user.is_online && (
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">접속중</Badge>
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30">접속중</Badge>
                 )}
               </div>
             </div>
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground mt-0.5 pl-12">
+          <DialogDescription className="text-sm text-muted-foreground mt-0.5 pl-12">
             회원의 상세 정보, 입출금 내역, 베팅 내역 및 AI 게임 패턴 분석을 확인할 수 있습니다.
           </DialogDescription>
         </DialogHeader>
@@ -547,38 +547,38 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
             <TabsList className="bg-transparent h-auto p-0 border-0 gap-2 w-full grid grid-cols-5">
               <TabsTrigger 
                 value="basic" 
-                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500/20 data-[state=active]:to-cyan-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/20 data-[state=active]:border data-[state=active]:border-blue-400/30 transition-all duration-200"
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500/20 data-[state=active]:to-cyan-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/20 data-[state=active]:border data-[state=active]:border-blue-400/30 transition-all duration-200"
               >
-                <User className="h-3 w-3 mr-1.5" />
-                기본정보
+                <User className="h-4 w-4 mr-2" />
+                <span className="text-sm">기본정보</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="transactions" 
-                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-500/20 data-[state=active]:to-emerald-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/20 data-[state=active]:border data-[state=active]:border-green-400/30 transition-all duration-200"
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-500/20 data-[state=active]:to-emerald-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/20 data-[state=active]:border data-[state=active]:border-green-400/30 transition-all duration-200"
               >
-                <Wallet className="h-3 w-3 mr-1.5" />
-                입출금내역
+                <Wallet className="h-4 w-4 mr-2" />
+                <span className="text-sm">입출금내역</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="betting" 
-                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20 data-[state=active]:border data-[state=active]:border-purple-400/30 transition-all duration-200"
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/20 data-[state=active]:border data-[state=active]:border-purple-400/30 transition-all duration-200"
               >
-                <Gamepad2 className="h-3 w-3 mr-1.5" />
-                베팅내역
+                <Gamepad2 className="h-4 w-4 mr-2" />
+                <span className="text-sm">베팅내역</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="pattern" 
-                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-orange-500/20 data-[state=active]:to-amber-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/20 data-[state=active]:border data-[state=active]:border-orange-400/30 transition-all duration-200"
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-orange-500/20 data-[state=active]:to-amber-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/20 data-[state=active]:border data-[state=active]:border-orange-400/30 transition-all duration-200"
               >
-                <Brain className="h-3 w-3 mr-1.5" />
-                AI 게임패턴
+                <Brain className="h-4 w-4 mr-2" />
+                <span className="text-sm">AI 게임패턴</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="evolution" 
-                className="bg-transparent text-slate-400 rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-br data-[state=active]:from-red-500/20 data-[state=active]:to-rose-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-500/20 data-[state=active]:border data-[state=active]:border-red-400/30 transition-all duration-200"
+                className="bg-transparent text-slate-400 rounded-lg px-4 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-red-500/20 data-[state=active]:to-rose-500/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-500/20 data-[state=active]:border data-[state=active]:border-red-400/30 transition-all duration-200"
               >
-                <Settings className="h-3 w-3 mr-1.5" />
-                에볼루션 설정
+                <Settings className="h-4 w-4 mr-2" />
+                <span className="text-sm">에볼루션 설정</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -588,73 +588,73 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
             {loading ? (
               <LoadingSpinner />
             ) : (
-              <div className="space-y-4 p-4">
+              <div className="space-y-5 p-4">
                 {/* 기본 정보 */}
                 <div>
-                  <h3 className="flex items-center gap-2 mb-3">
-                    <User className="h-3.5 w-3.5 text-blue-400" />
-                    <span className="text-xs">기본 정보</span>
+                  <h3 className="flex items-center gap-2 mb-4">
+                    <User className="h-4 w-4 text-blue-400" />
+                    <span className="text-base">기본 정보</span>
                   </h3>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">아이디</span>
-                      <span className="text-xs font-mono">{user.username}</span>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">아이디</span>
+                      <span className="text-base font-mono">{user.username}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">닉네임</span>
-                      <span className="text-xs">{user.nickname}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">닉네임</span>
+                      <span className="text-base">{user.nickname}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">가입일</span>
-                      <span className="text-xs">{formatDate(user.created_at)}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">가입일</span>
+                      <span className="text-base">{formatDate(user.created_at)}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">가입 경과</span>
-                      <span className="text-xs">{stats.accountAge}일</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">가입 경과</span>
+                      <span className="text-base">{stats.accountAge}일</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">은행</span>
-                      <span className="text-xs">{user.bank_name || '-'}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">은행</span>
+                      <span className="text-base">{user.bank_name || '-'}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">계좌번호</span>
-                      <span className="text-xs font-mono">{user.bank_account || '-'}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">계좌번호</span>
+                      <span className="text-base font-mono">{user.bank_account || '-'}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* 잔고 정보 */}
                 <div>
-                  <h3 className="flex items-center gap-2 mb-3">
-                    <Wallet className="h-3.5 w-3.5 text-emerald-400" />
-                    <span className="text-xs">잔고 정보</span>
+                  <h3 className="flex items-center gap-2 mb-4">
+                    <Wallet className="h-4 w-4 text-emerald-400" />
+                    <span className="text-base">잔고 정보</span>
                   </h3>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">보유금</span>
-                      <span className="text-xs font-mono">{formatCurrency(user.balance || 0)}</span>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">보유금</span>
+                      <span className="text-lg font-mono">{formatCurrency(user.balance || 0)}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">포인트</span>
-                      <span className="text-xs font-mono">{formatCurrency(user.points || 0)}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">포인트</span>
+                      <span className="text-lg font-mono">{formatCurrency(user.points || 0)}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">총 입금</span>
-                      <span className="text-xs font-mono text-blue-400">{formatCurrency(stats.totalDeposit)}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">총 입금</span>
+                      <span className="text-lg font-mono text-blue-400">{formatCurrency(stats.totalDeposit)}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">총 출금</span>
-                      <span className="text-xs font-mono text-pink-400">{formatCurrency(stats.totalWithdraw)}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">총 출금</span>
+                      <span className="text-lg font-mono text-pink-400">{formatCurrency(stats.totalWithdraw)}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gradient-to-r from-white/10 to-white/5 border border-white/20">
-                      <span className="text-xs">순 입출금</span>
-                      <span className={`text-xs font-mono ${stats.totalDeposit - stats.totalWithdraw >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-gradient-to-r from-white/10 to-white/5 border border-white/20">
+                      <span className="text-base">순 입출금</span>
+                      <span className={`text-lg font-mono ${stats.totalDeposit - stats.totalWithdraw >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {formatCurrency(stats.totalDeposit - stats.totalWithdraw)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gradient-to-r from-white/10 to-white/5 border border-white/20">
-                      <span className="text-xs">게임 손익</span>
-                      <span className={`text-xs font-mono ${stats.totalWinAmount - stats.totalBets >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-gradient-to-r from-white/10 to-white/5 border border-white/20">
+                      <span className="text-base">게임 손익</span>
+                      <span className={`text-lg font-mono ${stats.totalWinAmount - stats.totalBets >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {stats.totalWinAmount - stats.totalBets >= 0 ? '+' : ''}
                         {formatCurrency(stats.totalWinAmount - stats.totalBets)}
                       </span>
@@ -664,51 +664,51 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
 
                 {/* 베팅 통계 */}
                 <div>
-                  <h3 className="flex items-center gap-2 mb-3">
-                    <Activity className="h-3.5 w-3.5 text-amber-400" />
-                    <span className="text-xs">베팅 통계</span>
+                  <h3 className="flex items-center gap-2 mb-4">
+                    <Activity className="h-4 w-4 text-amber-400" />
+                    <span className="text-base">베팅 통계</span>
                   </h3>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">게임 플레이</span>
-                      <span className="text-xs font-mono">{stats.gameCount}회</span>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">게임 플레이</span>
+                      <span className="text-base font-mono">{stats.gameCount}회</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">승률</span>
-                      <span className={`text-xs font-mono ${stats.winRate > 50 ? 'text-green-400' : 'text-red-400'}`}>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">승률</span>
+                      <span className={`text-base font-mono ${stats.winRate > 50 ? 'text-green-400' : 'text-red-400'}`}>
                         {stats.winRate.toFixed(1)}%
                       </span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">총 베팅액</span>
-                      <span className="text-xs font-mono">{formatCurrency(stats.totalBets)}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">총 베팅액</span>
+                      <span className="text-base font-mono">{formatCurrency(stats.totalBets)}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">총 당첨액</span>
-                      <span className="text-xs font-mono">{formatCurrency(stats.totalWinAmount)}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">총 당첨액</span>
+                      <span className="text-base font-mono">{formatCurrency(stats.totalWinAmount)}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* 활동 정보 */}
                 <div>
-                  <h3 className="flex items-center gap-2 mb-3">
-                    <Clock className="h-3.5 w-3.5 text-purple-400" />
-                    <span className="text-xs">활동 정보</span>
+                  <h3 className="flex items-center gap-2 mb-4">
+                    <Clock className="h-4 w-4 text-purple-400" />
+                    <span className="text-base">활동 정보</span>
                   </h3>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">최근 활동</span>
-                      <span className="text-xs">{formatDateTime(stats.lastActivity)}</span>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">최근 활동</span>
+                      <span className="text-base">{formatDateTime(stats.lastActivity)}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                      <span className="text-xs text-muted-foreground">추천인</span>
-                      <span className="text-xs">{user.referrer?.username || '-'}</span>
+                    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                      <span className="text-sm text-muted-foreground">추천인</span>
+                      <span className="text-base">{user.referrer?.username || '-'}</span>
                     </div>
                     {user.memo && (
-                      <div className="col-span-2 py-2 px-3 rounded-lg bg-white/5 border border-white/10">
-                        <span className="text-xs text-muted-foreground block mb-1">메모</span>
-                        <span className="text-xs">{user.memo}</span>
+                      <div className="col-span-2 py-3 px-4 rounded-lg bg-white/5 border border-white/10">
+                        <span className="text-sm text-muted-foreground block mb-1.5">메모</span>
+                        <span className="text-base">{user.memo}</span>
                       </div>
                     )}
                   </div>
@@ -726,8 +726,8 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
               <LoadingSpinner />
             ) : transactions.length === 0 ? (
               <div className="text-center py-12 glass-card rounded-xl">
-                <Wallet className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <p className="text-muted-foreground text-xs">입출금 내역이 없습니다.</p>
+                <Wallet className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground text-base">입출금 내역이 없습니다.</p>
               </div>
             ) : (
               <div className="glass-card rounded-xl overflow-hidden">
@@ -735,45 +735,45 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                   <table className="w-full">
                     <thead className="border-b border-white/10">
                       <tr className="bg-white/5">
-                        <th className="px-3 py-2 text-left text-xs">구분</th>
-                        <th className="px-3 py-2 text-left text-xs">상태</th>
-                        <th className="px-3 py-2 text-left text-xs">일시</th>
-                        <th className="px-3 py-2 text-left text-xs">메모</th>
-                        <th className="px-3 py-2 text-right text-xs">금액</th>
+                        <th className="px-4 py-3.5 text-left text-sm">구분</th>
+                        <th className="px-4 py-3.5 text-left text-sm">상태</th>
+                        <th className="px-4 py-3.5 text-left text-sm">일시</th>
+                        <th className="px-4 py-3.5 text-left text-sm">메모</th>
+                        <th className="px-4 py-3.5 text-right text-sm">금액</th>
                       </tr>
                     </thead>
                     <tbody>
                       {transactions.map((tx) => (
                         <tr key={tx.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-1.5">
-                              <div className={`p-1 rounded-lg ${
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1.5 rounded-lg ${
                                 tx.transaction_type === 'deposit' 
                                   ? 'bg-green-500/20' 
                                   : 'bg-red-500/20'
                               }`}>
                                 {tx.transaction_type === 'deposit' ? (
-                                  <TrendingUp className="h-3 w-3 text-green-400" />
+                                  <TrendingUp className="h-4 w-4 text-green-400" />
                                 ) : (
-                                  <ArrowDownToLine className="h-3 w-3 text-red-400" />
+                                  <ArrowDownToLine className="h-4 w-4 text-red-400" />
                                 )}
                               </div>
-                              <span className="text-xs">
+                              <span className="text-sm">
                                 {tx.transaction_type === 'deposit' ? '입금' : '출금'}
                               </span>
                             </div>
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-4 py-3">
                             {getStatusBadge(tx.status)}
                           </td>
-                          <td className="px-3 py-2 text-muted-foreground text-xs">
+                          <td className="px-4 py-3 text-muted-foreground text-sm">
                             {formatDateTime(tx.created_at)}
                           </td>
-                          <td className="px-3 py-2 text-muted-foreground text-xs max-w-xs truncate">
+                          <td className="px-4 py-3 text-muted-foreground text-sm max-w-xs truncate">
                             {tx.notes || '-'}
                           </td>
-                          <td className="px-3 py-2 text-right">
-                            <span className={`font-mono text-xs ${
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-mono text-base ${
                               tx.transaction_type === 'deposit' ? 'text-green-400' : 'text-red-400'
                             }`}>
                               {tx.transaction_type === 'deposit' ? '+' : '-'}
@@ -795,8 +795,8 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
               <LoadingSpinner />
             ) : bettingHistory.length === 0 ? (
               <div className="text-center py-12 glass-card rounded-xl">
-                <Gamepad2 className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <p className="text-muted-foreground text-xs">베팅 내역이 없습니다.</p>
+                <Gamepad2 className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground text-base">베팅 내역이 없습니다.</p>
               </div>
             ) : (
               <div className="glass-card rounded-xl overflow-hidden">
@@ -804,12 +804,12 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                   <table className="w-full">
                     <thead className="border-b border-white/10">
                       <tr className="bg-white/5">
-                        <th className="px-3 py-2 text-left text-xs">게임</th>
-                        <th className="px-3 py-2 text-left text-xs">프로바이더</th>
-                        <th className="px-3 py-2 text-left text-xs">일시</th>
-                        <th className="px-3 py-2 text-right text-xs">베팅</th>
-                        <th className="px-3 py-2 text-right text-xs">당첨</th>
-                        <th className="px-3 py-2 text-right text-xs">손익</th>
+                        <th className="px-4 py-3.5 text-left text-sm">게임</th>
+                        <th className="px-4 py-3.5 text-left text-sm">프로바이더</th>
+                        <th className="px-4 py-3.5 text-left text-sm">일시</th>
+                        <th className="px-4 py-3.5 text-right text-sm">베팅</th>
+                        <th className="px-4 py-3.5 text-right text-sm">당첨</th>
+                        <th className="px-4 py-3.5 text-right text-sm">손익</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -819,34 +819,34 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                         
                         return (
                           <tr key={bet.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-1.5">
-                                <div className={`p-1 rounded-lg ${
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className={`p-1.5 rounded-lg ${
                                   isWin ? 'bg-green-500/20' : 'bg-red-500/20'
                                 }`}>
-                                  <Gamepad2 className={`h-3 w-3 ${
+                                  <Gamepad2 className={`h-4 w-4 ${
                                     isWin ? 'text-green-400' : 'text-red-400'
                                   }`} />
                                 </div>
-                                <span className="text-xs">
+                                <span className="text-sm">
                                   {bet.game_title || `게임 ID: ${bet.game_id}`}
                                 </span>
                               </div>
                             </td>
-                            <td className="px-3 py-2 text-muted-foreground text-xs">
+                            <td className="px-4 py-3 text-muted-foreground text-sm">
                               {bet.provider_name || `프로바이더 ${bet.provider_id}`}
                             </td>
-                            <td className="px-3 py-2 text-muted-foreground text-xs">
+                            <td className="px-4 py-3 text-muted-foreground text-sm">
                               {formatDateTime(bet.played_at)}
                             </td>
-                            <td className="px-3 py-2 text-right font-mono text-xs">
+                            <td className="px-4 py-3 text-right font-mono text-sm">
                               {formatCurrency(bet.bet_amount || 0)}
                             </td>
-                            <td className="px-3 py-2 text-right font-mono text-xs">
+                            <td className="px-4 py-3 text-right font-mono text-sm">
                               {formatCurrency(bet.win_amount || 0)}
                             </td>
-                            <td className="px-3 py-2 text-right">
-                              <span className={`font-mono text-xs ${
+                            <td className="px-4 py-3 text-right">
+                              <span className={`font-mono text-base ${
                                 isWin ? 'text-green-400' : 'text-red-400'
                               }`}>
                                 {profit >= 0 ? '+' : ''}{formatCurrency(profit)}
@@ -868,31 +868,31 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
               <LoadingSpinner />
             ) : !aiAnalysis ? (
               <div className="text-center py-12 glass-card rounded-xl">
-                <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <p className="text-muted-foreground text-xs mb-2">분석할 베팅 데이터가 부족합니다.</p>
+                <Brain className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground text-base mb-2">분석할 베팅 데이터가 부족합니다.</p>
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="grid gap-4">
                 {/* 사용자 성향 & 리스크 & 베팅 통계 & 시간 패턴 */}
-                <div className="grid gap-3 grid-cols-4">
+                <div className="grid gap-4 grid-cols-4">
                   <Card className="glass-card metric-gradient-purple">
-                    <CardContent className="pt-3 pb-3 px-4">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Target className="h-3 w-3 text-white" />
-                        <h3 className="text-xs text-white">사용자 성향</h3>
+                    <CardContent className="pt-4 pb-4 px-5">
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <Target className="h-4 w-4 text-white" />
+                        <h3 className="text-sm text-white">사용자 성향</h3>
                       </div>
-                      <p className="text-sm font-bold text-white mb-1">{aiAnalysis.userType}</p>
-                      <p className="text-xs text-white/80">베팅 패턴 종합 분석</p>
+                      <p className="text-base font-bold text-white mb-1.5">{aiAnalysis.userType}</p>
+                      <p className="text-sm text-white/80">베팅 패턴 종합 분석</p>
                     </CardContent>
                   </Card>
 
                   <Card className="glass-card">
-                    <CardContent className="pt-3 pb-3 px-4">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <AlertTriangle className="h-3 w-3 text-yellow-400" />
-                        <h3 className="text-xs">리스크 분석</h3>
+                    <CardContent className="pt-4 pb-4 px-5">
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                        <h3 className="text-sm">리스크 분석</h3>
                       </div>
-                      <Badge className={`text-xs px-2 py-0.5 mb-1.5 ${
+                      <Badge className={`px-2.5 py-1 mb-2 ${
                         aiAnalysis.riskLevel === 'HIGH' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
                         aiAnalysis.riskLevel === 'MEDIUM' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
                         'bg-green-500/20 text-green-400 border-green-500/30'
@@ -900,26 +900,26 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                         {aiAnalysis.riskLevel === 'HIGH' ? '고위험' :
                          aiAnalysis.riskLevel === 'MEDIUM' ? '중위험' : '저위험'}
                       </Badge>
-                      <div className="text-xs text-muted-foreground">
-                        평균: <span className="font-mono">{formatCurrency(aiAnalysis.avgBet)}</span>
+                      <div className="text-sm text-muted-foreground">
+                        평균: <span className="font-mono text-base">{formatCurrency(aiAnalysis.avgBet)}</span>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card className="glass-card">
-                    <CardContent className="pt-3 pb-3 px-4">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <BarChart3 className="h-3 w-3 text-cyan-400" />
-                        <h3 className="text-xs">베팅 통계</h3>
+                    <CardContent className="pt-4 pb-4 px-5">
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <BarChart3 className="h-4 w-4 text-cyan-400" />
+                        <h3 className="text-sm">베팅 통계</h3>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs text-muted-foreground">총 베팅</span>
-                          <span className="text-xs font-mono">{aiAnalysis.totalBets}회</span>
+                          <span className="text-sm text-muted-foreground">총 베팅</span>
+                          <span className="text-base font-mono">{aiAnalysis.totalBets}회</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-xs text-muted-foreground">승률</span>
-                          <span className={`text-xs font-mono ${aiAnalysis.winRate > 50 ? 'text-green-400' : 'text-red-400'}`}>
+                          <span className="text-sm text-muted-foreground">승률</span>
+                          <span className={`text-base font-mono ${aiAnalysis.winRate > 50 ? 'text-green-400' : 'text-red-400'}`}>
                             {aiAnalysis.winRate.toFixed(1)}%
                           </span>
                         </div>
@@ -928,19 +928,19 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                   </Card>
 
                   <Card className="glass-card">
-                    <CardContent className="pt-3 pb-3 px-4">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Clock className="h-3 w-3 text-orange-400" />
-                        <h3 className="text-xs">시간 패턴</h3>
+                    <CardContent className="pt-4 pb-4 px-5">
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <Clock className="h-4 w-4 text-orange-400" />
+                        <h3 className="text-sm">시간 패턴</h3>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs text-muted-foreground">피크</span>
-                          <span className="text-xs font-mono">{aiAnalysis.peakHour}시</span>
+                          <span className="text-sm text-muted-foreground">피크</span>
+                          <span className="text-base font-mono">{aiAnalysis.peakHour}시</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-xs text-muted-foreground">야간</span>
-                          <span className="text-xs font-mono">{aiAnalysis.nightPlayRatio.toFixed(1)}%</span>
+                          <span className="text-sm text-muted-foreground">야간</span>
+                          <span className="text-base font-mono">{aiAnalysis.nightPlayRatio.toFixed(1)}%</span>
                         </div>
                       </div>
                     </CardContent>
@@ -949,22 +949,22 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
 
                 {/* 선호 게임 TOP 5 */}
                 <Card className="glass-card">
-                  <CardContent className="pt-3 pb-3 px-4">
-                    <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-white/10">
-                      <Trophy className="h-3 w-3 text-yellow-400" />
-                      <h3 className="text-xs">선호 게임 TOP 5</h3>
+                  <CardContent className="pt-4 pb-4 px-5">
+                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/10">
+                      <Trophy className="h-4 w-4 text-yellow-400" />
+                      <h3 className="text-sm">선호 게임 TOP 5</h3>
                     </div>
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="grid grid-cols-5 gap-3">
                       {aiAnalysis.topGames.map((game: any, idx: number) => (
-                        <div key={idx} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs px-1.5 py-0.5 mb-1.5">
+                        <div key={idx} className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 px-2 py-0.5 mb-2">
                             {idx + 1}위
                           </Badge>
-                          <p className="text-xs mb-0.5 truncate">{game.game}</p>
-                          <p className="text-xs text-muted-foreground mb-1.5 truncate">{game.provider}</p>
-                          <div className="space-y-0.5">
-                            <p className="font-mono text-xs">{game.count}회</p>
-                            <p className={`text-xs ${game.winRate > 50 ? 'text-green-400' : 'text-red-400'}`}>
+                          <p className="text-sm mb-1 truncate">{game.game}</p>
+                          <p className="text-sm text-muted-foreground mb-2 truncate">{game.provider}</p>
+                          <div className="space-y-1">
+                            <p className="font-mono text-sm">{game.count}회</p>
+                            <p className={`text-sm ${game.winRate > 50 ? 'text-green-400' : 'text-red-400'}`}>
                               승률 {game.winRate.toFixed(1)}%
                             </p>
                           </div>
@@ -976,16 +976,16 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
 
                 {/* AI 인사이트 */}
                 <Card className="glass-card">
-                  <CardContent className="pt-3 pb-3 px-4">
-                    <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-white/10">
-                      <Brain className="h-3 w-3 text-purple-400" />
-                      <h3 className="text-xs">AI 분석 인사이트</h3>
+                  <CardContent className="pt-4 pb-4 px-5">
+                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/10">
+                      <Brain className="h-4 w-4 text-purple-400" />
+                      <h3 className="text-sm">AI 분석 인사이트</h3>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-3">
                       {aiAnalysis.insights.map((insight: string, idx: number) => (
-                        <div key={idx} className="flex items-start gap-1.5 p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/15 transition-colors">
-                          <Brain className="h-3 w-3 text-purple-400 mt-0.5 flex-shrink-0" />
-                          <p className="text-xs leading-relaxed">{insight}</p>
+                        <div key={idx} className="flex items-start gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/15 transition-colors">
+                          <Brain className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm leading-relaxed">{insight}</p>
                         </div>
                       ))}
                     </div>
@@ -1003,18 +1003,18 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
               <div className="space-y-4 p-4">
                 <Card className="glass-card">
                   <CardContent className="pt-6 pb-6 px-6">
-                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
-                      <Settings className="h-4 w-4 text-red-400" />
-                      <h3 className="text-sm">에볼루션 최대배팅금 설정</h3>
+                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-white/10">
+                      <Settings className="h-5 w-5 text-red-400" />
+                      <h3 className="text-base">에볼루션 최대배팅금 설정</h3>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       {/* 현재 설정 값 */}
                       {currentEvolutionLimit !== null && (
                         <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-slate-400">현재 설정</span>
-                            <span className="font-mono text-blue-400">
+                            <span className="text-sm text-slate-400">현재 설정</span>
+                            <span className="font-mono text-lg text-blue-400">
                               {currentEvolutionLimit.toLocaleString()}원
                             </span>
                           </div>
@@ -1023,13 +1023,13 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
 
                       {/* 회원 정보 */}
                       <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
-                        <div className="text-xs text-slate-400 mb-2">회원 아이디</div>
-                        <div className="font-mono text-white">{user.username}</div>
+                        <div className="text-sm text-slate-400 mb-2">회원 아이디</div>
+                        <div className="font-mono text-base text-white">{user.username}</div>
                       </div>
 
                       {/* 최대배팅금 설정 */}
                       <div>
-                        <Label className="text-xs text-slate-400 mb-2">최대배팅금액</Label>
+                        <Label className="text-sm text-slate-400 mb-2">최대배팅금액</Label>
                         <Input
                           type="number"
                           value={evolutionLimit}
@@ -1037,10 +1037,10 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                             const value = parseInt(e.target.value) || 0;
                             setEvolutionLimit(value);
                           }}
-                          className="bg-slate-800/50 border-slate-700 text-white font-mono"
+                          className="bg-slate-800/50 border-slate-700 text-white font-mono text-base"
                           placeholder="금액 입력"
                         />
-                        <p className="text-xs text-slate-500 mt-1.5">
+                        <p className="text-sm text-slate-500 mt-2">
                           {evolutionLimit.toLocaleString()}원
                         </p>
                       </div>
@@ -1061,7 +1061,7 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                             variant="outline"
                             size="sm"
                             onClick={() => setEvolutionLimit(prev => prev + item.value)}
-                            className="bg-slate-800/50 border-slate-700 hover:bg-slate-700 text-xs font-mono"
+                            className="bg-slate-800/50 border-slate-700 hover:bg-slate-700 text-sm font-mono"
                           >
                             {item.label}
                           </Button>
@@ -1069,18 +1069,18 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                       </div>
 
                       {/* 저장 버튼 */}
-                      <div className="flex gap-2 pt-2">
+                      <div className="flex gap-3 pt-2">
                         <Button
                           variant="outline"
                           onClick={() => setEvolutionLimit(currentEvolutionLimit || 100000000)}
-                          className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-700/50"
+                          className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-700/50 text-sm"
                         >
                           초기화
                         </Button>
                         <Button
                           onClick={saveEvolutionLimit}
                           disabled={evolutionLoading}
-                          className="flex-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700"
+                          className="flex-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-sm"
                         >
                           {evolutionLoading ? '저장 중...' : '저장'}
                         </Button>

@@ -9,7 +9,7 @@ import { DataTable } from "../common/DataTable";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { AdminDialog as Dialog, AdminDialogContent as DialogContent, AdminDialogDescription as DialogDescription, AdminDialogHeader as DialogHeader, AdminDialogTitle as DialogTitle, AdminDialogTrigger as DialogTrigger } from "./AdminDialog";
 import { Label } from "../ui/label";
-import { MessageSquare, Send, Reply, Search, User, Clock, CheckCircle, AlertCircle, Users, Filter } from "lucide-react";
+import { MessageSquare, Send, Reply, Search, User, Clock, CheckCircle, AlertCircle, Users, Filter, Mail, Info, FileText } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { supabase } from "../../lib/supabase";
 import { useWebSocketContext } from "../../contexts/WebSocketContext";
@@ -659,20 +659,35 @@ export function MessageCenter({ user }: MessageCenterProps) {
               새 메시지
             </Button>
           </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
+            <DialogContent className="!max-w-[mi500px,90vw)] w-[90vw] max-h-[85vh] overflow-hidden glass-card p-0 flex flex-col">
+              {/* 헤더 - 강조된 디자인 */}
+              <DialogHeader className="pb-5 border-b border-slate-700/50 bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-8 pt-6 rounded-t-lg bg-slate-900 backdrop-blur-xl flex-shrink-0">
+                <DialogTitle className="flex items-center gap-3 text-2xl text-slate-50">
+                  <div className="p-2.5 bg-blue-500/20 rounded-lg">
+                    <Send className="h-7 w-7 text-blue-400" />
+                  </div>
                   새 메시지 작성
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-slate-300 mt-2 text-base">
                   개별, 선택, 또는 전체 사용자에게 메시지를 전송할 수 있습니다. 전송 방식을 선택하고 메시지 내용을 작성해주세요.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+
+              {/* 메인 컨텐츠 */}
+              <div className="px-8 py-6 space-y-6 overflow-y-auto flex-1">
+                {/* 기본 설정 섹션 */}
+                <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-1 w-8 bg-blue-500 rounded-full"></div>
+                    <h4 className="font-semibold text-slate-100">전송 설정</h4>
+                  </div>
+                  
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="recipient_type">수신자 유형</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="recipient_type" className="text-slate-200 flex items-center gap-2">
+                      <Users className="h-3.5 w-3.5 text-blue-400" />
+                      수신자 유형
+                    </Label>
                     <Select 
                       value={newMessageForm.recipient_type} 
                       onValueChange={(value) => {
@@ -685,17 +700,20 @@ export function MessageCenter({ user }: MessageCenterProps) {
                         setAvailableUsers([]);
                       }}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 bg-slate-800/50 border-slate-600 hover:border-blue-500 transition-colors">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">사용자</SelectItem>
-                        <SelectItem value="partner">관리자</SelectItem>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="user">👤 사용자</SelectItem>
+                        <SelectItem value="partner">🤝 관리자</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="broadcast_type">전송 방식</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="broadcast_type" className="text-slate-200 flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 text-blue-400" />
+                      전송 방식
+                    </Label>
                     <Select 
                       value={newMessageForm.broadcast_type} 
                       onValueChange={(value) => {
@@ -710,23 +728,31 @@ export function MessageCenter({ user }: MessageCenterProps) {
                         }
                       }}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 bg-slate-800/50 border-slate-600 hover:border-blue-500 transition-colors">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="single">개별 전송</SelectItem>
-                        <SelectItem value="selected">선택 전송</SelectItem>
-                        <SelectItem value="all">전체 전송</SelectItem>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="single">📧 개별 전송</SelectItem>
+                        <SelectItem value="selected">📬 선택 전송</SelectItem>
+                        <SelectItem value="all">📢 전체 전송</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+                </div>
 
                 {/* 개별 전송일 때만 수신자 입력 필드 표시 */}
                 {newMessageForm.broadcast_type === 'single' && (
-                  <div>
-                    <Label htmlFor="recipient_username">수신자 검색</Label>
-                    <div className="space-y-2">
+                  <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-1 w-8 bg-green-500 rounded-full"></div>
+                      <h4 className="font-semibold text-slate-100">수신자 정보</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <Label htmlFor="recipient_username" className="text-slate-200 flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-green-400" />
+                        수신자 검색
+                      </Label>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                         <Input
@@ -734,202 +760,238 @@ export function MessageCenter({ user }: MessageCenterProps) {
                           value={newMessageForm.recipient_username}
                           onChange={(e) => setNewMessageForm(prev => ({ ...prev, recipient_username: e.target.value }))}
                           placeholder="수신자 ID를 입력하세요 (예: smcdev111)"
-                          className="pl-9 input-premium"
+                          className="pl-9 input-premium h-11 bg-slate-800/50 border-slate-600 focus:border-green-500"
                         />
                       </div>
-                      <p className="text-xs text-slate-500">
-                        💡 Tip: 사용자가 많은 경우 "선택 전송"을 이용하시면 검색하여 선택할 수 있습니다.
-                      </p>
+                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                        <p className="text-xs text-blue-300 flex items-center gap-2">
+                          <Info className="h-3.5 w-3.5" />
+                          사용자가 많은 경우 "선택 전송"을 이용하시면 검색하여 선택할 수 있습니다.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {/* 선택 전송일 때 사용자 선택 리스트 */}
                 {newMessageForm.broadcast_type === 'selected' && (
-                  <div>
-                    <Label>수신자 선택</Label>
-                    {loadingUsers ? (
-                      <div className="flex items-center justify-center p-8 text-slate-400">
-                        <div className="loading-premium w-8 h-8"></div>
-                        <span className="ml-3">사용자 목록 로딩 중...</span>
-                      </div>
-                    ) : (
-                      <div className="mt-2 space-y-3">
-                        {/* 검색 필터 */}
-                        <div className="relative">
-                          <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
-                          <Input
-                            value={userSearchTerm}
-                            onChange={(e) => setUserSearchTerm(e.target.value)}
-                            placeholder="사용자 ID로 검색..."
-                            className="pl-9 input-premium"
-                          />
+                  <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-1 w-8 bg-green-500 rounded-full"></div>
+                      <h4 className="font-semibold text-slate-100">수신자 선택</h4>
+                    </div>
+                    <div className="space-y-3">
+                      {loadingUsers ? (
+                        <div className="flex items-center justify-center p-8 text-slate-400">
+                          <div className="loading-premium w-8 h-8"></div>
+                          <span className="ml-3">사용자 목록 로딩 중...</span>
                         </div>
-                        
-                        {/* 전체 선택/해제 버튼 */}
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-slate-300">
-                            {filteredUsers.length}명 표시 중 / 총 {availableUsers.length}명
-                          </span>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const allUsernames = filteredUsers.map(u => u.username);
-                                setNewMessageForm(prev => ({
-                                  ...prev,
-                                  selected_users: Array.from(new Set([...prev.selected_users, ...allUsernames]))
-                                }));
-                              }}
-                              className="btn-premium-success text-xs px-2 py-1 h-7"
-                            >
-                              현재 페이지 전체 선택
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setNewMessageForm(prev => ({
-                                  ...prev,
-                                  selected_users: []
-                                }));
-                              }}
-                              className="text-xs px-2 py-1 h-7"
-                            >
-                              전체 해제
-                            </Button>
+                      ) : (
+                        <>
+                          {/* 검색 필터 */}
+                          <div className="relative">
+                            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                            <Input
+                              value={userSearchTerm}
+                              onChange={(e) => setUserSearchTerm(e.target.value)}
+                              placeholder="사용자 ID로 검색..."
+                              className="pl-9 input-premium"
+                            />
+                          </div>
+                          
+                          {/* 전체 선택/해제 버튼 */}
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-slate-300">
+                              {filteredUsers.length}명 표시 중 / 총 {availableUsers.length}명
+                            </span>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const allUsernames = filteredUsers.map(u => u.username);
+                                  setNewMessageForm(prev => ({
+                                    ...prev,
+                                    selected_users: Array.from(new Set([...prev.selected_users, ...allUsernames]))
+                                  }));
+                                }}
+                                className="btn-premium-success text-xs px-2 py-1 h-7"
+                              >
+                                현재 페이지 전체 선택
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setNewMessageForm(prev => ({
+                                    ...prev,
+                                    selected_users: []
+                                  }));
+                                }}
+                                className="text-xs px-2 py-1 h-7"
+                              >
+                                전체 해제
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* 사용자 목록 */}
+                          <div className="max-h-64 overflow-y-auto border border-slate-600 rounded-lg bg-slate-900/50 p-3 space-y-1">
+                            {filteredUsers.map((availableUser) => (
+                              <label 
+                                key={availableUser.id} 
+                                className="flex items-center space-x-3 cursor-pointer hover:bg-slate-800/50 p-2 rounded transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={newMessageForm.selected_users.includes(availableUser.username)}
+                                  onChange={(e) => {
+                                    const username = availableUser.username;
+                                    if (e.target.checked) {
+                                      setNewMessageForm(prev => ({
+                                        ...prev,
+                                        selected_users: [...prev.selected_users, username]
+                                      }));
+                                    } else {
+                                      setNewMessageForm(prev => ({
+                                        ...prev,
+                                        selected_users: prev.selected_users.filter(u => u !== username)
+                                      }));
+                                    }
+                                  }}
+                                  className="rounded w-4 h-4"
+                                />
+                                <span className="text-sm text-slate-200">{availableUser.username}</span>
+                              </label>
+                            ))}
+                            {filteredUsers.length === 0 && (
+                              <div className="text-center text-sm text-slate-500 py-8">
+                                {userSearchTerm ? '검색 결과가 없습니다.' : '사용자가 없습니다.'}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                      
+                      {newMessageForm.selected_users.length > 0 && (
+                        <div className="mt-3 p-3 bg-blue-900/30 border border-blue-600/30 rounded-lg">
+                          <div className="text-sm text-blue-300 flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4" />
+                            <strong>선택된 사용자:</strong> {newMessageForm.selected_users.length}명
+                          </div>
+                          <div className="text-xs text-blue-400 mt-2 max-h-24 overflow-y-auto">
+                            {newMessageForm.selected_users.join(', ')}
                           </div>
                         </div>
-
-                        {/* 사용자 목록 */}
-                        <div className="max-h-64 overflow-y-auto border border-slate-600 rounded-lg bg-slate-900/50 p-3 space-y-1">
-                          {filteredUsers.map((availableUser) => (
-                            <label 
-                              key={availableUser.id} 
-                              className="flex items-center space-x-3 cursor-pointer hover:bg-slate-800/50 p-2 rounded transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={newMessageForm.selected_users.includes(availableUser.username)}
-                                onChange={(e) => {
-                                  const username = availableUser.username;
-                                  if (e.target.checked) {
-                                    setNewMessageForm(prev => ({
-                                      ...prev,
-                                      selected_users: [...prev.selected_users, username]
-                                    }));
-                                  } else {
-                                    setNewMessageForm(prev => ({
-                                      ...prev,
-                                      selected_users: prev.selected_users.filter(u => u !== username)
-                                    }));
-                                  }
-                                }}
-                                className="rounded w-4 h-4"
-                              />
-                              <span className="text-sm text-slate-200">{availableUser.username}</span>
-                            </label>
-                          ))}
-                          {filteredUsers.length === 0 && (
-                            <div className="text-center text-sm text-slate-500 py-8">
-                              {userSearchTerm ? '검색 결과가 없습니다.' : '사용자가 없습니다.'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {newMessageForm.selected_users.length > 0 && (
-                      <div className="mt-3 p-3 bg-blue-900/30 border border-blue-600/30 rounded-lg">
-                        <div className="text-sm text-blue-300 flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4" />
-                          <strong>선택된 사용자:</strong> {newMessageForm.selected_users.length}명
-                        </div>
-                        <div className="text-xs text-blue-400 mt-2 max-h-24 overflow-y-auto">
-                          {newMessageForm.selected_users.join(', ')}
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {/* 전체 전송일 때 확인 메시지 */}
                 {newMessageForm.broadcast_type === 'all' && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <div className="flex items-center gap-2 text-yellow-800 mb-2">
-                      <AlertCircle className="h-5 w-5" />
-                      <span className="font-medium">전체 전송 확인</span>
+                  <div className="space-y-4 p-5 border border-yellow-500/50 rounded-xl bg-gradient-to-br from-yellow-900/20 to-yellow-800/10 shadow-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-1 w-8 bg-yellow-500 rounded-full"></div>
+                      <h4 className="font-semibold text-slate-100">전체 전송 확인</h4>
                     </div>
-                    <p className="text-sm text-yellow-700">
-                      모든 {newMessageForm.recipient_type === 'user' ? '사용자' : '관리자'}에게 메시지가 전송됩니다.
-                      {availableUsers.length > 0 && (
-                        <span className="font-medium"> (총 {availableUsers.length}명)</span>
-                      )}
-                    </p>
-                    {availableUsers.length > 0 && (
-                      <div className="mt-2 text-xs text-yellow-600">
-                        대상: {availableUsers.map(u => u.username).join(', ')}
+                    <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                      <div className="flex items-center gap-2 text-yellow-300 mb-2">
+                        <AlertCircle className="h-5 w-5" />
+                        <span className="font-medium">주의사항</span>
                       </div>
-                    )}
+                      <p className="text-sm text-yellow-200">
+                        모든 {newMessageForm.recipient_type === 'user' ? '사용자' : '관리자'}에게 메시지가 전송됩니다.
+                        {availableUsers.length > 0 && (
+                          <span className="font-semibold"> (총 {availableUsers.length}명)</span>
+                        )}
+                      </p>
+                      {availableUsers.length > 0 && availableUsers.length <= 10 && (
+                        <div className="mt-2 text-xs text-yellow-300">
+                          대상: {availableUsers.map(u => u.username).join(', ')}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                <div>
-                  <Label htmlFor="new_title">제목 (선택)</Label>
-                  <Input
-                    id="new_title"
-                    value={newMessageForm.title}
-                    onChange={(e) => setNewMessageForm(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="메시지 제목을 입력하세요"
-                  />
+                {/* 메시지 내용 섹션 */}
+                <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-1 w-8 bg-purple-500 rounded-full"></div>
+                    <h4 className="font-semibold text-slate-100">메시지 내용</h4>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Label htmlFor="new_title" className="text-slate-200 flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-purple-400" />
+                      제목
+                    </Label>
+                    <Input
+                      id="new_title"
+                      value={newMessageForm.title}
+                      onChange={(e) => setNewMessageForm(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="메시지 제목을 입력하세요 (선택사항)"
+                      className="input-premium h-11 bg-slate-800/50 border-slate-600 focus:border-purple-500"
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="new_content" className="text-slate-200 flex items-center gap-2">
+                      <MessageSquare className="h-3.5 w-3.5 text-purple-400" />
+                      내용 *
+                    </Label>
+                    <Textarea
+                      id="new_content"
+                      value={newMessageForm.content}
+                      onChange={(e) => setNewMessageForm(prev => ({ ...prev, content: e.target.value }))}
+                      placeholder="메시지 내용을 입력하세요"
+                      rows={6}
+                      className="input-premium bg-slate-800/50 border-slate-600 focus:border-purple-500 resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="message_type" className="text-slate-200">메시지 유형</Label>
+                    <Select value={newMessageForm.message_type} onValueChange={(value) => setNewMessageForm(prev => ({ ...prev, message_type: value }))}>
+                      <SelectTrigger className="h-11 bg-slate-800/50 border-slate-600 hover:border-purple-500 transition-colors">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="normal">💬 일반</SelectItem>
+                        <SelectItem value="system">⚙️ 시스템</SelectItem>
+                        <SelectItem value="urgent">🚨 긴급</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="new_content">내용 *</Label>
-                  <Textarea
-                    id="new_content"
-                    value={newMessageForm.content}
-                    onChange={(e) => setNewMessageForm(prev => ({ ...prev, content: e.target.value }))}
-                    placeholder="메시지 내용을 입력하세요"
-                    rows={6}
-                  />
-                </div>
+              </div>
 
-                <div>
-                  <Label htmlFor="message_type">메시지 유형</Label>
-                  <Select value={newMessageForm.message_type} onValueChange={(value) => setNewMessageForm(prev => ({ ...prev, message_type: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="normal">일반</SelectItem>
-                      <SelectItem value="system">시스템</SelectItem>
-                      <SelectItem value="urgent">긴급</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
-                  >
-                    취소
-                  </Button>
-                  <Button
-                    onClick={sendNewMessage}
-                    disabled={!newMessageForm.content.trim() || 
-                      (newMessageForm.broadcast_type === 'single' && !newMessageForm.recipient_username.trim()) ||
-                      (newMessageForm.broadcast_type === 'selected' && newMessageForm.selected_users.length === 0)
-                    }
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    전송 
-                    {newMessageForm.broadcast_type === 'single' && ' (1명)'}
-                    {newMessageForm.broadcast_type === 'selected' && ` (${newMessageForm.selected_users.length}명)`}
-                    {newMessageForm.broadcast_type === 'all' && ` (${availableUsers.length}명)`}
-                  </Button>
-                </div>
+              {/* 하단 액션 버튼 */}
+              <div className="flex gap-4 pt-6 border-t border-slate-700/50 px-8 pb-6 bg-slate-900 backdrop-blur-xl flex-shrink-0">
+                <Button 
+                  onClick={sendNewMessage}
+                  disabled={
+                    !newMessageForm.content.trim() || 
+                    (newMessageForm.broadcast_type === 'single' && !newMessageForm.recipient_username.trim()) ||
+                    (newMessageForm.broadcast_type === 'selected' && newMessageForm.selected_users.length === 0)
+                  }
+                  className="btn-premium-primary flex items-center gap-3 flex-1 h-12 text-base shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all"
+                >
+                  <Send className="h-5 w-5" />
+                  전송 
+                  {newMessageForm.broadcast_type === 'single' && ' (1명)'}
+                  {newMessageForm.broadcast_type === 'selected' && ` (${newMessageForm.selected_users.length}명)`}
+                  {newMessageForm.broadcast_type === 'all' && ` (${availableUsers.length}명)`}
+                </Button>
+                <Button 
+                  onClick={() => setIsDialogOpen(false)}
+                  variant="outline"
+                  className="border-slate-600 hover:bg-slate-700/50 h-12 px-8 text-base"
+                >
+                  취소
+                </Button>
               </div>
             </DialogContent>
           </Dialog>

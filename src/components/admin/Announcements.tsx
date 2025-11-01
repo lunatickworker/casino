@@ -10,7 +10,7 @@ import { LoadingSpinner } from "../common/LoadingSpinner";
 import { AdminDialog as Dialog, AdminDialogContent as DialogContent, AdminDialogDescription as DialogDescription, AdminDialogHeader as DialogHeader, AdminDialogTitle as DialogTitle, AdminDialogTrigger as DialogTrigger } from "./AdminDialog";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
-import { Bell, Plus, Edit, Trash2, Eye, Search, Calendar, Users, Upload, X } from "lucide-react";
+import { Bell, Plus, Edit, Trash2, Eye, Search, Calendar, Users, Upload, X, FileText, Info } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { supabase } from "../../lib/supabase";
 import { useWebSocketContext } from "../../contexts/WebSocketContext";
@@ -507,82 +507,226 @@ export function Announcements({ user }: AnnouncementsProps) {
               공지사항 작성
             </Button>
           </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
+            <DialogContent className="!max-w-[min(1000px,90vw)] w-[90vw] max-h-[85vh] overflow-hidden glass-card p-0 flex flex-col">
+              {/* 헤더 - 강조된 디자인 */}
+              <DialogHeader className="pb-5 border-b border-slate-700/50 bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-8 pt-6 rounded-t-lg bg-slate-900 backdrop-blur-xl flex-shrink-0">
+                <DialogTitle className="flex items-center gap-3 text-2xl text-slate-50">
+                  <div className="p-2.5 bg-blue-500/20 rounded-lg">
+                    <Bell className="h-7 w-7 text-blue-400" />
+                  </div>
                   {editingAnnouncement ? '공지사항 수정' : '새 공지사항 작성'}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-slate-300 mt-2 text-base">
                   {editingAnnouncement ? '공지사항 내용을 수정합니다.' : '새로운 공지사항을 작성하고 사용자에게 전달합니다.'}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="title">제목 *</Label>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder="공지사항 제목을 입력하세요"
+
+              {/* 메인 컨텐츠 */}
+              <div className="px-8 py-6 space-y-6 overflow-y-auto flex-1">
+                {/* 기본 정보 섹션 */}
+                <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-1 w-8 bg-blue-500 rounded-full"></div>
+                    <h4 className="font-semibold text-slate-100">기본 정보</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <Label htmlFor="title" className="text-slate-200 flex items-center gap-2">
+                        <FileText className="h-3.5 w-3.5 text-blue-400" />
+                        제목 *
+                      </Label>
+                      <Input
+                        id="title"
+                        value={formData.title}
+                        onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="공지사항 제목을 입력하세요"
+                        className="input-premium h-11 text-base border-slate-600 focus:border-blue-500 bg-slate-800/50"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-slate-200">상태</Label>
+                      <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                        <SelectTrigger className="h-11 bg-slate-800/50 border-slate-600 hover:border-blue-500 transition-colors">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="active">✅ 활성</SelectItem>
+                          <SelectItem value="inactive">⏸️ 비활성</SelectItem>
+                          <SelectItem value="draft">📝 임시저장</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-3">
+                      <Label className="text-slate-200">대상</Label>
+                      <Select value={formData.target_audience} onValueChange={(value) => setFormData(prev => ({ ...prev, target_audience: value }))}>
+                        <SelectTrigger className="h-11 bg-slate-800/50 border-slate-600 hover:border-blue-500 transition-colors">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="all">👥 전체</SelectItem>
+                          <SelectItem value="users">👤 사용자</SelectItem>
+                          <SelectItem value="partners">🤝 관리자</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-slate-200">대상 레벨</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="6"
+                        value={formData.target_level}
+                        onChange={(e) => setFormData(prev => ({ ...prev, target_level: e.target.value }))}
+                        placeholder="특정 레벨만 (1-6)"
+                        className="input-premium h-11 bg-slate-800/50 border-slate-600 focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-slate-200">표시 순서</Label>
+                      <Input
+                        type="number"
+                        value={formData.display_order}
+                        onChange={(e) => setFormData(prev => ({ ...prev, display_order: parseInt(e.target.value) || 0 }))}
+                        className="input-premium h-11 bg-slate-800/50 border-slate-600 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-700/30">
+                    <div className="space-y-3">
+                      <Label className="text-slate-200 flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 text-blue-400" />
+                        시작일
+                      </Label>
+                      <Input
+                        type="date"
+                        value={formData.start_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                        className="input-premium h-11 bg-slate-800/50 border-slate-600 focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-slate-200">종료일</Label>
+                      <Input
+                        type="date"
+                        value={formData.end_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                        placeholder="선택사항"
+                        className="input-premium h-11 bg-slate-800/50 border-slate-600 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
+                    <Switch
+                      id="is_popup"
+                      checked={formData.is_popup}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_popup: checked }))}
                     />
-                  </div>
-                  <div>
-                    <Label htmlFor="status">상태</Label>
-                    <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">활성</SelectItem>
-                        <SelectItem value="inactive">비활성</SelectItem>
-                        <SelectItem value="draft">임시저장</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="is_popup" className="text-slate-200 cursor-pointer">
+                      팝업으로 표시
+                    </Label>
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="content">내용 *</Label>
-                  <Textarea
-                    id="content"
-                    value={formData.content}
-                    onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                    placeholder="공지사항 내용을 입력하세요&#10;&#10;• 공지사항 내용을 상세히 작성하세요&#10;• 필요시 이미지를 첨부할 수 있습니다"
-                    rows={10}
-                    className="input-premium"
-                  />
+                {/* 내용 섹션 */}
+                <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-1 w-8 bg-green-500 rounded-full"></div>
+                    <h4 className="font-semibold text-slate-100">공지사항 내용</h4>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Label htmlFor="content" className="text-slate-200 flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-green-400" />
+                      내용 *
+                    </Label>
+                    <Textarea
+                      id="content"
+                      value={formData.content}
+                      onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                      placeholder="공지사항 내용을 입력하세요&#10;&#10;• 공지사항 내용을 상세히 작성하세요&#10;• 필요시 이미지를 첨부할 수 있습니다"
+                      rows={8}
+                      className="input-premium bg-slate-800/50 border-slate-600 focus:border-green-500 resize-none text-base leading-relaxed"
+                    />
+                    <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                      <p className="text-xs text-slate-400">
+                        💡 <strong className="text-slate-300">작성 팁:</strong> 명확하고 간결하게 작성하세요
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="image">이미지 첨부</Label>
-                  <div className="space-y-2">
+                {/* 이미지 업로드 섹션 */}
+                <div className="space-y-4 p-5 border border-slate-700/50 rounded-xl bg-gradient-to-br from-slate-900/50 to-slate-800/30 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1 w-8 bg-purple-500 rounded-full"></div>
+                      <h4 className="font-semibold text-slate-100">이미지 첨부</h4>
+                    </div>
+                    {uploadedImage && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={removeImage}
+                        className="h-8 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        제거
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                      <p className="text-xs text-blue-300 flex items-center gap-2">
+                        <Info className="h-3.5 w-3.5" />
+                        최대 5MB, JPG/PNG/GIF 형식
+                      </p>
+                    </div>
+
                     {uploadedImage ? (
-                      <div className="relative inline-block">
-                        <img 
-                          src={uploadedImage} 
-                          alt="업로드된 이미지" 
-                          className="max-w-sm max-h-48 rounded-lg border border-slate-600"
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          className="absolute top-2 right-2"
-                          onClick={removeImage}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                      <div className="space-y-3">
+                        <div className="relative border-2 border-slate-600 rounded-xl overflow-hidden bg-slate-900 shadow-xl">
+                          <div className="p-4 flex items-center justify-center">
+                            <img 
+                              src={uploadedImage} 
+                              alt="업로드된 이미지" 
+                              className="max-w-full max-h-60 object-contain rounded"
+                            />
+                          </div>
+                          <div className="absolute top-2 right-2">
+                            <Badge variant="secondary" className="bg-green-500/90 text-white">
+                              미리보기
+                            </Badge>
+                          </div>
+                        </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <Label 
+                          htmlFor="image"
+                          className="flex-1 flex items-center justify-center h-24 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-purple-500 hover:bg-purple-500/5 transition-all bg-slate-800/30 group"
+                        >
+                          <div className="flex items-center gap-3 text-slate-300">
+                            <div className="p-3 bg-slate-700/50 rounded-full group-hover:bg-purple-500/20 transition-colors">
+                              <Upload className="h-6 w-6 text-slate-400 group-hover:text-purple-400 transition-colors" />
+                            </div>
+                            <span>클릭하여 이미지 업로드</span>
+                          </div>
+                        </Label>
                         <Input
                           id="image"
                           type="file"
                           accept="image/*"
                           onChange={handleImageChange}
                           disabled={uploading}
-                          className="input-premium"
+                          className="hidden"
                         />
                         {uploading && (
                           <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -592,91 +736,27 @@ export function Announcements({ user }: AnnouncementsProps) {
                         )}
                       </div>
                     )}
-                    <p className="text-xs text-slate-500">최대 5MB, JPG/PNG/GIF 형식</p>
                   </div>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="target_audience">대상</Label>
-                    <Select value={formData.target_audience} onValueChange={(value) => setFormData(prev => ({ ...prev, target_audience: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">전체</SelectItem>
-                        <SelectItem value="users">사용자</SelectItem>
-                        <SelectItem value="partners">관리자</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="target_level">대상 레벨 (선택)</Label>
-                    <Input
-                      id="target_level"
-                      type="number"
-                      min="1"
-                      max="6"
-                      value={formData.target_level}
-                      onChange={(e) => setFormData(prev => ({ ...prev, target_level: e.target.value }))}
-                      placeholder="특정 레벨만 (1-6)"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="display_order">표시 순서</Label>
-                    <Input
-                      id="display_order"
-                      type="number"
-                      value={formData.display_order}
-                      onChange={(e) => setFormData(prev => ({ ...prev, display_order: parseInt(e.target.value) || 0 }))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="start_date">시작일</Label>
-                    <Input
-                      id="start_date"
-                      type="date"
-                      value={formData.start_date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="end_date">종료일 (선택)</Label>
-                    <Input
-                      id="end_date"
-                      type="date"
-                      value={formData.end_date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_popup"
-                    checked={formData.is_popup}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_popup: checked }))}
-                  />
-                  <Label htmlFor="is_popup">팝업으로 표시</Label>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
-                  >
-                    취소
-                  </Button>
-                  <Button
-                    onClick={saveAnnouncement}
-                    disabled={!formData.title.trim() || !formData.content.trim()}
-                  >
-                    {editingAnnouncement ? '수정' : '등록'}
-                  </Button>
-                </div>
+              {/* 하단 액션 버튼 */}
+              <div className="flex gap-4 pt-6 border-t border-slate-700/50 px-8 pb-6 bg-slate-900 backdrop-blur-xl flex-shrink-0">
+                <Button 
+                  onClick={saveAnnouncement}
+                  disabled={!formData.title.trim() || !formData.content.trim()}
+                  className="btn-premium-primary flex items-center gap-3 flex-1 h-12 text-base shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all"
+                >
+                  <Bell className="h-5 w-5" />
+                  {editingAnnouncement ? '수정' : '등록'}
+                </Button>
+                <Button 
+                  onClick={() => setIsDialogOpen(false)}
+                  variant="outline"
+                  className="border-slate-600 hover:bg-slate-700/50 h-12 px-8 text-base"
+                >
+                  취소
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
