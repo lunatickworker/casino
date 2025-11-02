@@ -185,9 +185,9 @@ export function UserLayout({ user, currentRoute, onRouteChange, onLogout, childr
             // 게임창 닫기
             const closed = (window as any).forceCloseGameWindow?.(newSession.id);
             if (closed && newSession.status === 'force_ended') {
-              toast.error('관리자에 의해 게임이 종료되었습니다.');
+              //toast.error('관리자에 의해 게임이 종료되었습니다.');
             } else if (newSession.status === 'auto_ended') {
-              toast.info('4분간 베팅이 없어 게임이 종료되었습니다.');
+              //toast.info('4분간 베팅이 없어 게임이 종료되었습니다.');
             }
 
             // 세션 종료 시 보유금 동기화

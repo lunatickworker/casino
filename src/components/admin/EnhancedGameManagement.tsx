@@ -587,22 +587,33 @@ export function EnhancedGameManagement({ user }: EnhancedGameManagementProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {syncResults.map((result) => (
                 <div
                   key={result.providerId}
-                  className={`flex items-center justify-between p-3 rounded-lg border ${
-                    result.error ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'
+                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border ${
+                    result.error 
+                      ? 'bg-red-500/10 border-red-500/30' 
+                      : 'bg-slate-700/30 border-slate-600/50'
                   }`}
                 >
-                  <span className="font-medium">{result.providerName}</span>
-                  <div className="text-sm">
+                  <span className="font-semibold text-slate-100">{result.providerName}</span>
+                  <div className="flex flex-wrap items-center gap-2">
                     {result.error ? (
-                      <span className="text-red-600">실패: {result.error}</span>
+                      <Badge variant="destructive" className="gap-1">
+                        <span>실패: {result.error}</span>
+                      </Badge>
                     ) : (
-                      <span className="text-green-600">
-                        신규 {result.gamesAdded}개, 업데이트 {result.gamesUpdated}개
-                      </span>
+                      <>
+                        <Badge variant="default" className="gap-1 bg-emerald-600/80 hover:bg-emerald-600">
+                          <span className="text-xs">신규</span>
+                          <span className="font-mono">{result.gamesAdded}개</span>
+                        </Badge>
+                        <Badge variant="secondary" className="gap-1 bg-blue-600/80 hover:bg-blue-600 text-white">
+                          <span className="text-xs">업데이트</span>
+                          <span className="font-mono">{result.gamesUpdated}개</span>
+                        </Badge>
+                      </>
                     )}
                   </div>
                 </div>

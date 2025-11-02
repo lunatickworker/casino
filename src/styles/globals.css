@@ -622,27 +622,159 @@ html {
   color: #e2e8f0;
 }
 
-/* 다크 토스트 */
+/* ===== 블루 럭셔리 토스트 ===== */
+
+/* 기본 토스트 - 투명하고 깔끔한 디자인 */
 [data-sonner-toast] {
-  background: rgba(26, 31, 46, 0.95) !important;
-  border: 1px solid rgba(71, 85, 105, 0.5) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
-  backdrop-filter: blur(20px) !important;
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.15), rgba(37, 99, 235, 0.1)) !important;
+  border: 1px solid rgba(59, 130, 246, 0.2) !important;
+  box-shadow: 
+    0 8px 32px rgba(59, 130, 246, 0.15),
+    0 0 0 1px rgba(59, 130, 246, 0.05) inset !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  color: rgba(226, 232, 240, 0.85) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  opacity: 0.92 !important;
 }
 
+/* 호버/클릭 시 - 선명하게 */
+[data-sonner-toast]:hover,
+[data-sonner-toast]:active {
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.35), rgba(37, 99, 235, 0.25)) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 
+    0 12px 48px rgba(59, 130, 246, 0.35),
+    0 0 0 1px rgba(59, 130, 246, 0.15) inset,
+    0 0 80px rgba(59, 130, 246, 0.2) !important;
+  opacity: 1 !important;
+  transform: translateY(-2px) scale(1.01) !important;
+  color: rgba(226, 232, 240, 1) !important;
+}
+
+/* 성공 토스트 - 에메랄드 그린 */
 [data-sonner-toast][data-type="success"] {
-  border-color: rgba(20, 184, 166, 0.5) !important;
-  box-shadow: 0 8px 32px rgba(20, 184, 166, 0.3) !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(20, 184, 166, 0.1)) !important;
+  border-color: rgba(20, 184, 166, 0.25) !important;
+  box-shadow: 
+    0 8px 32px rgba(20, 184, 166, 0.2),
+    0 0 0 1px rgba(20, 184, 166, 0.05) inset !important;
 }
 
+[data-sonner-toast][data-type="success"]:hover,
+[data-sonner-toast][data-type="success"]:active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(20, 184, 166, 0.25)) !important;
+  border-color: rgba(20, 184, 166, 0.6) !important;
+  box-shadow: 
+    0 12px 48px rgba(20, 184, 166, 0.4),
+    0 0 0 1px rgba(20, 184, 166, 0.2) inset,
+    0 0 80px rgba(20, 184, 166, 0.25) !important;
+}
+
+/* 에러 토스트 - 루비 레드 */
 [data-sonner-toast][data-type="error"] {
-  border-color: rgba(244, 63, 94, 0.5) !important;
-  box-shadow: 0 8px 32px rgba(244, 63, 94, 0.3) !important;
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.15), rgba(225, 29, 72, 0.1)) !important;
+  border-color: rgba(244, 63, 94, 0.25) !important;
+  box-shadow: 
+    0 8px 32px rgba(244, 63, 94, 0.2),
+    0 0 0 1px rgba(244, 63, 94, 0.05) inset !important;
 }
 
+[data-sonner-toast][data-type="error"]:hover,
+[data-sonner-toast][data-type="error"]:active {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.35), rgba(225, 29, 72, 0.25)) !important;
+  border-color: rgba(244, 63, 94, 0.6) !important;
+  box-shadow: 
+    0 12px 48px rgba(244, 63, 94, 0.4),
+    0 0 0 1px rgba(244, 63, 94, 0.2) inset,
+    0 0 80px rgba(244, 63, 94, 0.25) !important;
+}
+
+/* 경고 토스트 - 골드 오렌지 */
 [data-sonner-toast][data-type="warning"] {
-  border-color: rgba(251, 146, 60, 0.5) !important;
-  box-shadow: 0 8px 32px rgba(251, 146, 60, 0.3) !important;
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(249, 115, 22, 0.1)) !important;
+  border-color: rgba(251, 146, 60, 0.25) !important;
+  box-shadow: 
+    0 8px 32px rgba(251, 146, 60, 0.2),
+    0 0 0 1px rgba(251, 146, 60, 0.05) inset !important;
+}
+
+[data-sonner-toast][data-type="warning"]:hover,
+[data-sonner-toast][data-type="warning"]:active {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.35), rgba(249, 115, 22, 0.25)) !important;
+  border-color: rgba(251, 146, 60, 0.6) !important;
+  box-shadow: 
+    0 12px 48px rgba(251, 146, 60, 0.4),
+    0 0 0 1px rgba(251, 146, 60, 0.2) inset,
+    0 0 80px rgba(251, 146, 60, 0.25) !important;
+}
+
+/* 정보 토스트 - 사파이어 블루 */
+[data-sonner-toast][data-type="info"] {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(6, 182, 212, 0.1)) !important;
+  border-color: rgba(14, 165, 233, 0.25) !important;
+  box-shadow: 
+    0 8px 32px rgba(14, 165, 233, 0.2),
+    0 0 0 1px rgba(14, 165, 233, 0.05) inset !important;
+}
+
+[data-sonner-toast][data-type="info"]:hover,
+[data-sonner-toast][data-type="info"]:active {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.35), rgba(6, 182, 212, 0.25)) !important;
+  border-color: rgba(14, 165, 233, 0.6) !important;
+  box-shadow: 
+    0 12px 48px rgba(14, 165, 233, 0.4),
+    0 0 0 1px rgba(14, 165, 233, 0.2) inset,
+    0 0 80px rgba(14, 165, 233, 0.25) !important;
+}
+
+/* 토스트 텍스트 */
+[data-sonner-toast] [data-title] {
+  color: rgba(226, 232, 240, 0.9) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+}
+
+[data-sonner-toast]:hover [data-title],
+[data-sonner-toast]:active [data-title] {
+  color: rgba(255, 255, 255, 1) !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: rgba(203, 213, 225, 0.75) !important;
+  font-size: 0.875rem !important;
+}
+
+[data-sonner-toast]:hover [data-description],
+[data-sonner-toast]:active [data-description] {
+  color: rgba(226, 232, 240, 0.95) !important;
+}
+
+/* 토스트 아이콘 */
+[data-sonner-toast] [data-icon] {
+  opacity: 0.8 !important;
+  filter: drop-shadow(0 0 8px currentColor) !important;
+}
+
+[data-sonner-toast]:hover [data-icon],
+[data-sonner-toast]:active [data-icon] {
+  opacity: 1 !important;
+  filter: drop-shadow(0 0 12px currentColor) !important;
+}
+
+/* 닫기 버튼 */
+[data-sonner-toast] [data-close-button] {
+  background: rgba(71, 85, 105, 0.2) !important;
+  border: 1px solid rgba(100, 116, 139, 0.3) !important;
+  border-radius: 6px !important;
+  color: rgba(203, 213, 225, 0.7) !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-sonner-toast] [data-close-button]:hover {
+  background: rgba(100, 116, 139, 0.4) !important;
+  border-color: rgba(148, 163, 184, 0.5) !important;
+  color: rgba(241, 245, 249, 1) !important;
+  transform: scale(1.1) !important;
 }
 
 /* VIP 카지노 테마 */
